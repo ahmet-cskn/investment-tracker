@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: investment-service
+  datasource:
+    # Defaults match the Postgres container in the root docker-compose.yml
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/investment_tracker}
+    username: ${DB_USERNAME:investment}
+    password: ${DB_PASSWORD:investment}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # The schema is owned by Liquibase; Hibernate only checks that entities match it
+      ddl-auto: validate

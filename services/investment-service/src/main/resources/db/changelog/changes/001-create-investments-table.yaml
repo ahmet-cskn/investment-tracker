@@ -1,0 +1,27 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-investments-table
+      author: ahmet-cskn
+      changes:
+        - createTable:
+            tableName: investments
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount
+                  type: numeric(38,18)
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: ALTER TABLE investments ADD CONSTRAINT investments_amount_positive CHECK (amount > 0)
+            rollback: ALTER TABLE investments DROP CONSTRAINT investments_amount_positive
