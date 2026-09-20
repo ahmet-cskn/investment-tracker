@@ -42,6 +42,13 @@ services:
     depends_on:
       investment-service:
         condition: service_healthy
+    healthcheck:
+      # Without this, `docker compose up --wait` returns while nginx may not yet accept connections.
+      # 127.0.0.1 rather than localhost: nginx listens on IPv4 only and localhost may resolve to ::1.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres-data:
