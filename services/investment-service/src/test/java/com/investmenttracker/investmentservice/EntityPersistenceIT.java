@@ -1,0 +1,99 @@
+package com.investmenttracker.investmentservice;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.investmenttracker.investmentservice.investment.Investment;
+import com.investmenttracker.investmentservice.transactionhistory.TransactionHistory;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.math.BigDecimal;
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+
+/**
+ * Round-trips the entities through a real PostgreSQL to check that they map to the Liquibase schema:
+ * column names, types, precision and nullability. Each test rolls back, so the database stays empty.
+ */
+@SpringBootTest
+@Testcontainers
+@Transactional
+class EntityPersistenceIT {
+
+	@Container
+	@ServiceConnection
+	static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine");
+
+	@PersistenceContext
+	private EntityManager entityManager;
+
+	@Test
+	void investmentKeepsTypeAndWorth() {
+		Investment investment = new Investment("Ethereum", new BigDecimal("3.5"));
+		investment.setInvestmentType("CRYPTO");
+		investment.setWorth(new BigDecimal("0.123456789012345678"));
+
+		Investment reloaded = saveAndReload(investment);
+
+		assertThat(reloaded.getInvestmentType()).isEqualTo("CRYPTO");
+		assertThat(reloaded.getWorth()).isEqualByComparingTo("0.123456789012345678");
+	}
+
+	@Test
+	void investmentWithoutTypeAndWorthIsStillValid() {
+		Investment reloaded = saveAndReload(new Investment("Gold", new BigDecimal("5")));
+
+		assertThat(reloaded.getInvestmentType()).isNull();
+		assertThat(reloaded.getWorth()).isNull();
+	}
+
+	@Test
+	void transactionHistoryKeepsAllFieldsIncludingNegativeChange() {
+		Instant timestamp = Instant.parse("2026-09-20T10:15:30.123456Z");
+		TransactionHistory entry = new TransactionHistory("Gold", "METAL", new BigDecimal("-2.5"), timestamp);
+
+		TransactionHistory reloaded = saveAndReload(entry);
+
+		assertThat(reloaded.getId()).isNotNull();
+		assertThat(reloaded.getName()).isEqualTo("Gold");
+		assertThat(reloaded.getInvestmentType()).isEqualTo("METAL");
+		assertThat(reloaded.getChange()).isEqualByComparingTo("-2.5");
+		assertThat(reloaded.getTimestamp()).isEqualTo(timestamp);
+	}
+
+	// Nulling one field at a time (each invocation gets its own rolled-back transaction, as a failed flush poisons it)
+	@ParameterizedTest
+	@ValueSource(strings = { "name", "investment_type", "change", "timestamp" })
+	void transactionHistoryRequiresEveryField(String missingColumn) {
+		TransactionHistory incomplete = new TransactionHistory(
+				missingColumn.equals("name") ? null : "Gold",
+				missingColumn.equals("investment_type") ? null : "METAL",
+				missingColumn.equals("change") ? null : new BigDecimal("1"),
+				missingColumn.equals("timestamp") ? null : Instant.now());
+
+		assertThatThrownBy(() -> {
+			entityManager.persist(incomplete);
+			entityManager.flush();
+		}).rootCause().hasMessageContaining("\"" + missingColumn + "\"").hasMessageContaining("not-null");
+	}
+
+	// Flushing and clearing forces the reload to come from the database and not the persistence context
+	private <T> T saveAndReload(T entity) {
+		entityManager.persist(entity);
+		entityManager.flush();
+		entityManager.clear();
+		Object id = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(entity);
+		@SuppressWarnings("unchecked")
+		Class<T> type = (Class<T>) entity.getClass();
+		return entityManager.find(type, id);
+	}
+
+}
