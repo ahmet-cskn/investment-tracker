@@ -1,5 +1,7 @@
 # Investment Tracker
 
+[![CI](https://github.com/ahmet-cskn/investment-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmet-cskn/investment-tracker/actions/workflows/ci.yml)
+
 A personal finance and investment tracker, built as a set of Spring Boot microservices with a React frontend.
 
 ## Components
@@ -73,3 +75,11 @@ cd frontend
 npm test      # unit and component tests (Vitest, React Testing Library, MSW)
 npm run lint
 ```
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request and every push to `main`, with three parallel jobs:
+
+- **Backend:** `mvn verify` (unit tests and Testcontainers integration tests)
+- **Frontend:** lint, tests and production build
+- **Docker:** builds both images, starts the whole stack with Compose and smoke-tests it through nginx
