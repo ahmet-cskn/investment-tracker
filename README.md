@@ -9,19 +9,30 @@ A personal finance and investment tracker, built as a set of Spring Boot microse
 | [`services/investment-service`](services/investment-service) | CRUD for investments (name + amount), backed by PostgreSQL |
 | [`frontend`](frontend) | React single-page UI for managing investments |
 
-## Prerequisites
+## Quick start
 
-- JDK 17+
-- Maven 3.9+
-- Node.js 20+ and npm
-- Docker (for local Postgres and the backend integration tests)
+The only requirement is Docker. This builds and starts PostgreSQL, the backend and the frontend:
 
-## Running locally
+```bash
+docker compose up --build
+```
+
+- UI: http://localhost:3000
+- API: http://localhost:8080/api/investments
+- Swagger UI: http://localhost:8080/swagger-ui.html
+
+Stop everything with `docker compose down`. The data lives in a Docker volume and survives restarts; add `-v` to delete it.
+
+## Development
+
+For hot reload while coding, run only the database in Docker and the apps on your machine. Stop the containerised backend and frontend first (`docker compose down`), as they use the same ports.
+
+Prerequisites: JDK 17+, Maven 3.9+, Node.js 20+ and npm, and Docker (for Postgres and the backend integration tests).
 
 Start PostgreSQL:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
 Run the backend:

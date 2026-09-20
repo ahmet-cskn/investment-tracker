@@ -16,5 +16,32 @@ services:
       timeout: 3s
       retries: 10
 
+  investment-service:
+    build: ./services/investment-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/investment_tracker
+      DB_USERNAME: investment
+      DB_PASSWORD: investment
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # The port only opens once Spring has started, i.e. after the Liquibase migrations have run
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      investment-service:
+        condition: service_healthy
+
 volumes:
   postgres-data:
