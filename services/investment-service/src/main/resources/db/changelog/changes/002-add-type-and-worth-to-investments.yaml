@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-add-type-and-worth-to-investments
+      author: ahmet-cskn
+      changes:
+        # Nullable: rows that already exist have no type or worth, and the columns are not yet written by the service
+        - addColumn:
+            tableName: investments
+            columns:
+              - column:
+                  name: investment_type
+                  type: varchar(255)
+              - column:
+                  name: worth
+                  type: numeric(38,18)

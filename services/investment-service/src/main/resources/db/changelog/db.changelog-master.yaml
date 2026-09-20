@@ -1,3 +1,7 @@
 databaseChangeLog:
   - include:
       file: db/changelog/changes/001-create-investments-table.yaml
+  - include:
+      file: db/changelog/changes/002-add-type-and-worth-to-investments.yaml
+  - include:
+      file: db/changelog/changes/003-create-transaction-history-table.yaml

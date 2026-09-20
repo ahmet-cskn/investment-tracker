@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-transaction-history-table
+      author: ahmet-cskn
+      changes:
+        - createTable:
+            tableName: transaction_history
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: investment_type
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              # Signed: negative for a decrease, so there is deliberately no "> 0" check like on investments.amount
+              - column:
+                  name: change
+                  type: numeric(38,18)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timestamp
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
