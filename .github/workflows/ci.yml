@@ -83,14 +83,16 @@ jobs:
       - name: Build and start the stack
         run: docker compose up -d --build --wait
 
-      # Goes through nginx, so this covers the frontend image, the /api proxy, the backend and the database
+      # Goes through nginx, so this covers the frontend image, the /api proxy, the backend and the database.
+      # "Gold" must be a name in the investment_catalog seed data (db/changelog); investment creation
+      # looks the name up there and rejects anything else with 400.
       - name: Smoke test
         run: |
           curl --fail --silent --show-error localhost:3000/ > /dev/null
           curl --fail --silent --show-error -X POST localhost:3000/api/investments \
-            -H 'Content-Type: application/json' -d '{"name":"ci-smoke","amount":1.5}'
+            -H 'Content-Type: application/json' -d '{"name":"Gold","amount":1.5}'
           echo
-          curl --fail --silent --show-error localhost:3000/api/investments | grep ci-smoke
+          curl --fail --silent --show-error localhost:3000/api/investments | grep Gold
 
       - name: Show container logs
         if: failure()
