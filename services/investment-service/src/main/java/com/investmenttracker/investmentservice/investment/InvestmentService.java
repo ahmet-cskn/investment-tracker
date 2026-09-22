@@ -2,6 +2,7 @@ package com.investmenttracker.investmentservice.investment;
 
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
+import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
 import com.investmenttracker.investmentservice.investment.dto.CreateInvestmentRequest;
 import com.investmenttracker.investmentservice.investment.dto.InvestmentResponse;
 import com.investmenttracker.investmentservice.investment.dto.UpdateInvestmentRequest;
