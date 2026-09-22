@@ -58,7 +58,20 @@ class InvestmentApiIT {
 				.andExpect(header().string("Location", matchesPattern(".*/api/investments/[0-9a-f-]{36}")))
 				.andExpect(jsonPath("$.id").isNotEmpty())
 				.andExpect(jsonPath("$.name").value("Ethereum"))
-				.andExpect(jsonPath("$.amount").value(3.5));
+				.andExpect(jsonPath("$.amount").value(3.5))
+				.andExpect(jsonPath("$.investmentType").value("Cryptocurrency"))
+				.andExpect(jsonPath("$.worth").value(1));
+	}
+
+	@Test
+	void createRejectsAnUnknownInvestmentName() throws Exception {
+		mockMvc.perform(post("/api/investments").contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"name": "Dogecoin", "amount": 5}
+						"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.title").value("Invalid investment name"))
+				.andExpect(jsonPath("$.errors[0].field").value("name"));
 	}
 
 	@Test
@@ -134,7 +147,7 @@ class InvestmentApiIT {
 	}
 
 	@Test
-	void updateReplacesNameAndAmount() throws Exception {
+	void updateReplacesNameAmountAndDerivesTypeAndWorth() throws Exception {
 		Investment saved = investmentRepository.save(new Investment("Gold", new BigDecimal("5")));
 
 		mockMvc.perform(put("/api/investments/{id}", saved.getId()).contentType(MediaType.APPLICATION_JSON)
@@ -143,10 +156,24 @@ class InvestmentApiIT {
 						"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("Silver"))
-				.andExpect(jsonPath("$.amount").value(12.5));
+				.andExpect(jsonPath("$.amount").value(12.5))
+				.andExpect(jsonPath("$.investmentType").value("Precious Metal"))
+				.andExpect(jsonPath("$.worth").value(1));
 
 		mockMvc.perform(get("/api/investments/{id}", saved.getId()))
 				.andExpect(jsonPath("$.name").value("Silver"));
+	}
+
+	@Test
+	void updateRejectsAnUnknownInvestmentName() throws Exception {
+		Investment saved = investmentRepository.save(new Investment("Gold", new BigDecimal("5")));
+
+		mockMvc.perform(put("/api/investments/{id}", saved.getId()).contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"name": "Dogecoin", "amount": 5}
+						"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.title").value("Invalid investment name"));
 	}
 
 	@Test

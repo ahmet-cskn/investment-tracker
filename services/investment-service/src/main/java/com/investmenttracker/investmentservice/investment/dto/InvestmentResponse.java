@@ -4,10 +4,11 @@ import com.investmenttracker.investmentservice.investment.Investment;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public record InvestmentResponse(UUID id, String name, BigDecimal amount) {
+public record InvestmentResponse(UUID id, String name, BigDecimal amount, String investmentType, BigDecimal worth) {
 
 	public static InvestmentResponse from(Investment investment) {
-		return new InvestmentResponse(investment.getId(), investment.getName(), investment.getAmount());
+		return new InvestmentResponse(investment.getId(), investment.getName(), investment.getAmount(),
+				investment.getInvestmentType(), investment.getWorth());
 	}
 
 }

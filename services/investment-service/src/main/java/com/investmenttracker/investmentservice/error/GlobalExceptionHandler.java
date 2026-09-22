@@ -1,6 +1,7 @@
 package com.investmenttracker.investmentservice.error;
 
 import com.investmenttracker.investmentservice.investment.InvestmentNotFoundException;
+import com.investmenttracker.investmentservice.investment.UnknownInvestmentNameException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	public ProblemDetail handleNotFound(InvestmentNotFoundException ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
 		problem.setTitle("Investment not found");
+		return problem;
+	}
+
+	@ExceptionHandler(UnknownInvestmentNameException.class)
+	public ProblemDetail handleUnknownName(UnknownInvestmentNameException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+		problem.setTitle("Invalid investment name");
+		problem.setProperty("errors", List.of(new FieldValidationError("name", ex.getMessage())));
 		return problem;
 	}
 

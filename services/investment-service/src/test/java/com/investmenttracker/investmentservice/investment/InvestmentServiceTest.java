@@ -3,10 +3,13 @@ package com.investmenttracker.investmentservice.investment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
+import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.investment.dto.CreateInvestmentRequest;
 import com.investmenttracker.investmentservice.investment.dto.InvestmentResponse;
 import com.investmenttracker.investmentservice.investment.dto.UpdateInvestmentRequest;
@@ -14,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,11 +30,25 @@ class InvestmentServiceTest {
 	@Mock
 	private InvestmentRepository investmentRepository;
 
+	@Mock
+	private InvestmentCatalogRepository investmentCatalogRepository;
+
 	@InjectMocks
 	private InvestmentService investmentService;
 
+	@BeforeEach
+	void stubKnownCatalogEntries() {
+		// lenient: not every test in this class exercises the catalog lookup
+		lenient().when(investmentCatalogRepository.findById("Gold"))
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal")));
+		lenient().when(investmentCatalogRepository.findById("Silver"))
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Silver", "Precious Metal")));
+		lenient().when(investmentCatalogRepository.findById("Ethereum"))
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Ethereum", "Cryptocurrency")));
+	}
+
 	@Test
-	void createSavesInvestmentAndReturnsResponse() {
+	void createLooksUpTheCatalogAndSetsTypeAndWorth() {
 		when(investmentRepository.save(any(Investment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		InvestmentResponse response = investmentService
@@ -38,6 +56,30 @@ class InvestmentServiceTest {
 
 		assertThat(response.name()).isEqualTo("Gold");
 		assertThat(response.amount()).isEqualByComparingTo("5");
+		assertThat(response.investmentType()).isEqualTo("Precious Metal");
+		assertThat(response.worth()).isEqualByComparingTo("1");
+	}
+
+	@Test
+	void createIgnoresAnyClientSuppliedTypeOrWorth() {
+		// CreateInvestmentRequest only has name and amount, so this is enforced by the API shape itself;
+		// this test documents that create() never reads type/worth from anywhere but the catalog
+		when(investmentRepository.save(any(Investment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		InvestmentResponse response = investmentService
+				.create(new CreateInvestmentRequest("Ethereum", new BigDecimal("2")));
+
+		assertThat(response.investmentType()).isEqualTo("Cryptocurrency");
+		assertThat(response.worth()).isEqualByComparingTo("1");
+	}
+
+	@Test
+	void createThrowsForAnUnknownName() {
+		when(investmentCatalogRepository.findById("Doge")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> investmentService.create(new CreateInvestmentRequest("Doge", BigDecimal.ONE)))
+				.isInstanceOf(UnknownInvestmentNameException.class)
+				.hasMessageContaining("Doge");
 	}
 
 	@Test
@@ -68,7 +110,7 @@ class InvestmentServiceTest {
 	}
 
 	@Test
-	void updateChangesNameAndAmount() {
+	void updateChangesNameAmountTypeAndWorth() {
 		UUID id = UUID.randomUUID();
 		Investment existing = new Investment("Gold", new BigDecimal("5"));
 		when(investmentRepository.findById(id)).thenReturn(Optional.of(existing));
@@ -78,7 +120,18 @@ class InvestmentServiceTest {
 
 		assertThat(response.name()).isEqualTo("Silver");
 		assertThat(response.amount()).isEqualByComparingTo("12.5");
+		assertThat(response.investmentType()).isEqualTo("Precious Metal");
+		assertThat(response.worth()).isEqualByComparingTo("1");
 		assertThat(existing.getName()).isEqualTo("Silver");
+	}
+
+	@Test
+	void updateThrowsForAnUnknownName() {
+		UUID id = UUID.randomUUID();
+		when(investmentCatalogRepository.findById("Doge")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> investmentService.update(id, new UpdateInvestmentRequest("Doge", BigDecimal.ONE)))
+				.isInstanceOf(UnknownInvestmentNameException.class);
 	}
 
 	@Test
