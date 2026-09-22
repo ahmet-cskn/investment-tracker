@@ -27,7 +27,9 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
       <thead>
         <tr>
           <th>Name</th>
+          <th>Type</th>
           <th className="numeric">Amount</th>
+          <th className="numeric">Worth</th>
           <th>
             <span className="visually-hidden">Actions</span>
           </th>
@@ -35,13 +37,15 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
       </thead>
       <tbody>
         {investments.map((investment) => {
-          const { id, name, amount } = investment
+          const { id, name, amount, investmentType, worth } = investment
           const isConfirming = confirmingId === id
           const isDeleting = deletingId === id
           return (
             <tr key={id} className={editingId === id ? 'editing' : undefined}>
               <td>{name}</td>
+              <td>{investmentType ?? '—'}</td>
               <td className="numeric">{formatAmount(amount)}</td>
+              <td className="numeric">{worth != null ? formatAmount(worth) : '—'}</td>
               <td className="actions">
                 {isConfirming ? (
                   <>

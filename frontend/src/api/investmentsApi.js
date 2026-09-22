@@ -3,8 +3,9 @@ import { PLAIN_DECIMAL } from '../utils/amount.js'
 /**
  * Client for the investment-service REST API.
  *
- * @typedef {{ id: string, name: string, amount: string }} Investment
- *   `amount` is a decimal string (e.g. "3.5"), never a number, to avoid losing precision.
+ * @typedef {{ id: string, name: string, amount: string, investmentType: string, worth: string }} Investment
+ *   `amount` and `worth` are decimal strings (e.g. "3.5"), never numbers, to avoid losing precision.
+ *   `investmentType` and `worth` are derived server-side from `name`; they are not settable here.
  * @typedef {{ name: string, amount: string }} InvestmentInput
  *   `amount` must be a plain decimal string such as "3.5".
  * @typedef {{ field: string, message: string }} FieldError
@@ -26,11 +27,12 @@ export class ApiError extends Error {
   }
 }
 
-// JSON.parse would turn amounts into doubles and silently round them, so amounts are quoted first.
-const AMOUNT_VALUE = /("amount"\s*:\s*)(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g
+// JSON.parse would turn decimals into doubles and silently round them, so they are quoted first.
+// worth is fixed at 1 today but numeric(38,18) like amount, so it gets the same treatment up front.
+const DECIMAL_VALUE = /("(?:amount|worth)"\s*:\s*)(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g
 
 function parseJsonKeepingAmounts(text) {
-  return JSON.parse(text.replace(AMOUNT_VALUE, '$1"$2"'))
+  return JSON.parse(text.replace(DECIMAL_VALUE, '$1"$2"'))
 }
 
 // The amount is written into the JSON as a number literal (not a string) without going through a double.

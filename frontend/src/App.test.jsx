@@ -51,6 +51,20 @@ describe('listing', () => {
     expect(within(rows[2]).getByText('Gold (g)')).toBeInTheDocument()
     expect(within(rows[2]).getByText('5')).toBeInTheDocument()
   })
+
+  it('shows the type and worth derived from the catalog, and a placeholder for a name outside it', async () => {
+    // "Bitcoin" is a catalog name (like ETH's "Ethereum"); "Gold (g)" is not, so it has no derived type/worth
+    const BITCOIN = { id: 'id-c', name: 'Bitcoin', amount: '0.5' }
+    renderApp([GOLD, BITCOIN])
+
+    const rows = await screen.findAllByRole('row')
+
+    expect(within(rows[1]).getByText('Bitcoin')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('Cryptocurrency')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('1')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('Gold (g)')).toBeInTheDocument()
+    expect(within(rows[2]).getAllByText('—')).toHaveLength(2)
+  })
 })
 
 describe('load failure', () => {
