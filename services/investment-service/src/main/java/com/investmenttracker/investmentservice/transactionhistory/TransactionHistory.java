@@ -11,9 +11,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One entry in the history of changes to an investment. Entries are records of things that happened,
- * so there are no setters. The name and type are copied from the investment rather than referencing it,
- * which keeps the history intact if the investment is later deleted.
+ * One entry in the history of changes to an investment. The name and type are copied from the
+ * investment rather than referencing it, which keeps the history intact if the investment is later
+ * renamed or deleted.
  */
 @Entity
 @Table(name = "transaction_history")
@@ -55,16 +55,32 @@ public class TransactionHistory {
 		return name;
 	}
 
+	public void setName(String name) {
+		this.name = name;
+	}
+
 	public String getInvestmentType() {
 		return investmentType;
+	}
+
+	public void setInvestmentType(String investmentType) {
+		this.investmentType = investmentType;
 	}
 
 	public BigDecimal getChange() {
 		return change;
 	}
 
+	public void setChange(BigDecimal change) {
+		this.change = change;
+	}
+
 	public Instant getTimestamp() {
 		return timestamp;
+	}
+
+	public void setTimestamp(Instant timestamp) {
+		this.timestamp = timestamp;
 	}
 
 }

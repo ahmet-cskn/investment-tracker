@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-investment-catalog-table
+      author: ahmet-cskn
+      changes:
+        - createTable:
+            tableName: investment_catalog
+            columns:
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: investment_type
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+        - insert:
+            tableName: investment_catalog
+            columns:
+              - column: { name: name, value: Gold }
+              - column: { name: investment_type, value: Precious Metal }
+        - insert:
+            tableName: investment_catalog
+            columns:
+              - column: { name: name, value: Silver }
+              - column: { name: investment_type, value: Precious Metal }
+        - insert:
+            tableName: investment_catalog
+            columns:
+              - column: { name: name, value: Bitcoin }
+              - column: { name: investment_type, value: Cryptocurrency }
+        - insert:
+            tableName: investment_catalog
+            columns:
+              - column: { name: name, value: Ethereum }
+              - column: { name: investment_type, value: Cryptocurrency }
+        - insert:
+            tableName: investment_catalog
+            columns:
+              - column: { name: name, value: S&P500 }
+              - column: { name: investment_type, value: Stock }
