@@ -2,32 +2,67 @@ import { useState } from 'react'
 import ErrorBanner from './components/ErrorBanner.jsx'
 import InvestmentForm from './components/InvestmentForm.jsx'
 import InvestmentTable from './components/InvestmentTable.jsx'
+import TransactionModal from './components/TransactionModal.jsx'
+import TransactionTable from './components/TransactionTable.jsx'
+import { useCatalog } from './hooks/useCatalog.js'
 import {
   useCreateInvestment,
   useDeleteInvestment,
   useInvestments,
   useUpdateInvestment,
 } from './hooks/useInvestments.js'
+import {
+  useCreateTransaction,
+  useDeleteTransaction,
+  useTransactions,
+  useUpdateTransaction,
+} from './hooks/useTransactions.js'
 
 export default function App() {
   const investments = useInvestments()
   const createInvestment = useCreateInvestment()
   const updateInvestment = useUpdateInvestment()
   const deleteInvestment = useDeleteInvestment()
-  const [editing, setEditing] = useState(null)
+  const [editingInvestment, setEditingInvestment] = useState(null)
 
-  async function handleSubmit(values) {
-    if (editing) {
-      await updateInvestment.mutateAsync({ id: editing.id, ...values })
-      setEditing(null)
+  const transactions = useTransactions()
+  const catalog = useCatalog()
+  const createTransaction = useCreateTransaction()
+  const updateTransaction = useUpdateTransaction()
+  const deleteTransaction = useDeleteTransaction()
+  const [transactionModalOpen, setTransactionModalOpen] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState(null)
+
+  async function handleInvestmentSubmit(values) {
+    if (editingInvestment) {
+      await updateInvestment.mutateAsync({ id: editingInvestment.id, ...values })
+      setEditingInvestment(null)
     } else {
       await createInvestment.mutateAsync(values)
     }
   }
 
-  async function handleDelete(id) {
+  async function handleInvestmentDelete(id) {
     await deleteInvestment.mutateAsync(id)
-    if (editing?.id === id) setEditing(null)
+    if (editingInvestment?.id === id) setEditingInvestment(null)
+  }
+
+  function openAddTransaction() {
+    setEditingTransaction(null)
+    setTransactionModalOpen(true)
+  }
+
+  function openEditTransaction(transaction) {
+    setEditingTransaction(transaction)
+    setTransactionModalOpen(true)
+  }
+
+  async function handleTransactionSubmit(values) {
+    if (editingTransaction) {
+      await updateTransaction.mutateAsync({ id: editingTransaction.id, ...values })
+    } else {
+      await createTransaction.mutateAsync(values)
+    }
   }
 
   return (
@@ -35,10 +70,10 @@ export default function App() {
       <h1>Investment Tracker</h1>
 
       <InvestmentForm
-        key={editing?.id ?? 'new'}
-        editing={editing}
-        onSubmit={handleSubmit}
-        onCancel={() => setEditing(null)}
+        key={editingInvestment?.id ?? 'new'}
+        editing={editingInvestment}
+        onSubmit={handleInvestmentSubmit}
+        onCancel={() => setEditingInvestment(null)}
       />
 
       {deleteInvestment.isError && (
@@ -54,12 +89,51 @@ export default function App() {
         {investments.isSuccess && (
           <InvestmentTable
             investments={investments.data}
-            editingId={editing?.id}
-            onEdit={setEditing}
-            onDelete={handleDelete}
+            editingId={editingInvestment?.id}
+            onEdit={setEditingInvestment}
+            onDelete={handleInvestmentDelete}
           />
         )}
       </section>
+
+      {deleteTransaction.isError && (
+        <ErrorBanner message={deleteTransaction.error.message} onDismiss={deleteTransaction.reset} />
+      )}
+
+      <section className="card">
+        <h2>Your transactions</h2>
+        {transactions.isPending && <p className="empty">Loading…</p>}
+        {transactions.isError && (
+          <ErrorBanner message={transactions.error.message} onRetry={() => transactions.refetch()} />
+        )}
+        {transactions.isSuccess && (
+          <TransactionTable
+            transactions={transactions.data}
+            onEdit={openEditTransaction}
+            onDelete={(id) => deleteTransaction.mutateAsync(id)}
+          />
+        )}
+
+        <div className="transaction-actions">
+          {catalog.isPending && <p className="empty">Loading investments…</p>}
+          {catalog.isError && (
+            <ErrorBanner message={catalog.error.message} onRetry={() => catalog.refetch()} />
+          )}
+          {catalog.isSuccess && (
+            <button type="button" className="primary" onClick={openAddTransaction}>
+              Add Transaction
+            </button>
+          )}
+        </div>
+      </section>
+
+      <TransactionModal
+        open={transactionModalOpen}
+        editing={editingTransaction}
+        catalog={catalog.data ?? []}
+        onSubmit={handleTransactionSubmit}
+        onClose={() => setTransactionModalOpen(false)}
+      />
     </main>
   )
 }

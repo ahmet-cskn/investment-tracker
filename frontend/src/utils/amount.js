@@ -5,6 +5,7 @@ export const MAX_INTEGER_DIGITS = 20
 export const MAX_FRACTION_DIGITS = 18
 
 export const PLAIN_DECIMAL = /^\d+(\.\d+)?$/
+export const SIGNED_PLAIN_DECIMAL = /^-?\d+(\.\d+)?$/
 
 /**
  * Turns an amount string into a plain decimal without padding: "5.000000000000000000" -> "5".
@@ -41,6 +42,22 @@ export function validateAmount(input) {
   const [integer, fraction = ''] = formatAmount(value).split('.')
   if (/^0+$/.test(integer) && !fraction) return 'Amount must be greater than 0'
   if (integer.length > MAX_INTEGER_DIGITS) return 'Amount is too large'
+  if (fraction.length > MAX_FRACTION_DIGITS) return `Use at most ${MAX_FRACTION_DIGITS} decimal places`
+  return null
+}
+
+/**
+ * Returns an error message for an invalid transaction change input, or null if it is valid.
+ * Unlike an amount, a change may be negative (a decrease) or zero.
+ */
+export function validateChange(input) {
+  const value = input.trim()
+  if (!value) return 'Change is required'
+  if (!SIGNED_PLAIN_DECIMAL.test(value)) return 'Enter a number such as 5, -5 or 3.5'
+
+  const formatted = formatAmount(value)
+  const [integer, fraction = ''] = (formatted.startsWith('-') ? formatted.slice(1) : formatted).split('.')
+  if (integer.length > MAX_INTEGER_DIGITS) return 'Change is too large'
   if (fraction.length > MAX_FRACTION_DIGITS) return `Use at most ${MAX_FRACTION_DIGITS} decimal places`
   return null
 }
