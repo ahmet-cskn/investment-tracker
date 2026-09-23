@@ -47,7 +47,7 @@ export default function InvestmentForm({ editing, onSubmit, onCancel }) {
 
   return (
     <form className="card form" onSubmit={handleSubmit} noValidate>
-      <h2>{isEditing ? 'Edit investment' : 'Add investment'}</h2>
+      <h2>{isEditing ? 'Edit initial investment' : 'Add initial investment'}</h2>
 
       <div className="field">
         <label htmlFor="investment-name">Name</label>

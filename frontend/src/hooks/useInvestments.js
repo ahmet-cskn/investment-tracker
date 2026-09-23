@@ -5,6 +5,7 @@ import {
   listInvestments,
   updateInvestment,
 } from '../api/investmentsApi.js'
+import { PORTFOLIO_KEY } from './usePortfolio.js'
 
 const INVESTMENTS_KEY = ['investments']
 
@@ -21,11 +22,16 @@ export function useInvestments() {
 
 // Refetching in onSettled (and returning the promise) means mutateAsync resolves once the list is fresh,
 // and the list also self-corrects after a failed mutation (e.g. deleting a row that is already gone).
+// These are the initial investments, which the portfolio is computed from, so it is refreshed too.
 function useInvalidatingMutation(mutationFn) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: INVESTMENTS_KEY }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: INVESTMENTS_KEY }),
+        queryClient.invalidateQueries({ queryKey: PORTFOLIO_KEY }),
+      ]),
   })
 }
 
