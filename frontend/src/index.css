@@ -85,7 +85,8 @@ label {
   font-weight: 600;
 }
 
-input {
+input,
+select {
   font: inherit;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -94,7 +95,8 @@ input {
   color: var(--text);
 }
 
-input[aria-invalid='true'] {
+input[aria-invalid='true'],
+select[aria-invalid='true'] {
   border-color: var(--danger);
 }
 
@@ -207,6 +209,45 @@ td.actions {
 .empty {
   margin: 0;
   color: var(--muted);
+}
+
+.transaction-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.transaction-actions .empty {
+  margin: 0;
+}
+
+.transaction-actions .banner {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.modal {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.modal::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal h2 {
+  margin: 0;
 }
 
 .visually-hidden {

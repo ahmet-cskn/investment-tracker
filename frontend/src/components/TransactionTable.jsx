@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { formatAmount } from '../utils/amount.js'
+import { formatTimestamp } from '../utils/dateTime.js'
 
 /** `onDelete(id)` must return a promise; failures are reported by the parent, so they are ignored here. */
-export default function InvestmentTable({ investments, editingId, onEdit, onDelete }) {
+export default function TransactionTable({ transactions, onEdit, onDelete }) {
   const [confirmingId, setConfirmingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
 
@@ -18,8 +19,8 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
     }
   }
 
-  if (investments.length === 0) {
-    return <p className="empty">No investments yet. Add your first one above.</p>
+  if (transactions.length === 0) {
+    return <p className="empty">No transactions yet. Add one below.</p>
   }
 
   return (
@@ -28,24 +29,24 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
         <tr>
           <th>Name</th>
           <th>Type</th>
-          <th className="numeric">Amount</th>
-          <th className="numeric">Worth</th>
+          <th className="numeric">Change</th>
+          <th>Timestamp</th>
           <th>
             <span className="visually-hidden">Actions</span>
           </th>
         </tr>
       </thead>
       <tbody>
-        {investments.map((investment) => {
-          const { id, name, amount, investmentType, worth } = investment
+        {transactions.map((transaction) => {
+          const { id, name, investmentType, change, timestamp } = transaction
           const isConfirming = confirmingId === id
           const isDeleting = deletingId === id
           return (
-            <tr key={id} className={editingId === id ? 'editing' : undefined}>
+            <tr key={id}>
               <td>{name}</td>
               <td>{investmentType ?? '—'}</td>
-              <td className="numeric">{formatAmount(amount)}</td>
-              <td className="numeric">{worth != null ? formatAmount(worth) : '—'}</td>
+              <td className="numeric">{formatAmount(change)}</td>
+              <td>{formatTimestamp(timestamp)}</td>
               <td className="actions">
                 {isConfirming ? (
                   <>
@@ -53,7 +54,7 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
                     <button
                       type="button"
                       className="danger"
-                      aria-label={`Confirm delete ${name}`}
+                      aria-label={`Confirm delete transaction for ${name}`}
                       disabled={isDeleting}
                       onClick={() => confirmDelete(id)}
                     >
@@ -61,7 +62,7 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
                     </button>
                     <button
                       type="button"
-                      aria-label={`Cancel delete ${name}`}
+                      aria-label={`Cancel delete transaction for ${name}`}
                       disabled={isDeleting}
                       onClick={() => setConfirmingId(null)}
                     >
@@ -70,10 +71,18 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
                   </>
                 ) : (
                   <>
-                    <button type="button" aria-label={`Edit ${name}`} onClick={() => onEdit(investment)}>
+                    <button
+                      type="button"
+                      aria-label={`Edit transaction for ${name}`}
+                      onClick={() => onEdit(transaction)}
+                    >
                       Edit
                     </button>
-                    <button type="button" aria-label={`Delete ${name}`} onClick={() => setConfirmingId(id)}>
+                    <button
+                      type="button"
+                      aria-label={`Delete transaction for ${name}`}
+                      onClick={() => setConfirmingId(id)}
+                    >
                       Delete
                     </button>
                   </>

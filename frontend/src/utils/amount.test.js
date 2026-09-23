@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAmount, validateAmount, validateName } from './amount.js'
+import { formatAmount, validateAmount, validateChange, validateName } from './amount.js'
 
 describe('formatAmount', () => {
   it.each([
@@ -53,6 +53,30 @@ describe('validateAmount', () => {
 
   it('rejects more than 20 integer digits', () => {
     expect(validateAmount('123456789012345678901')).toBe('Amount is too large')
+  })
+})
+
+describe('validateChange', () => {
+  it.each(['5', '-5', '3.5', '-3.5', '0', '0.0', '  12.25  '])('accepts %s', (input) => {
+    expect(validateChange(input)).toBeNull()
+  })
+
+  it('requires a value', () => {
+    expect(validateChange('  ')).toBe('Change is required')
+  })
+
+  it.each(['abc', '1e3', '.5', '5.', '1,5', '--5'])('rejects non-plain-number %s', (input) => {
+    expect(validateChange(input)).toBe('Enter a number such as 5, -5 or 3.5')
+  })
+
+  it('rejects more than 18 decimal places but ignores trailing zeros, including when negative', () => {
+    expect(validateChange('-0.0000000000000000001')).toBe('Use at most 18 decimal places')
+    expect(validateChange('-1.5000000000000000000')).toBeNull()
+  })
+
+  it('rejects more than 20 integer digits, including when negative', () => {
+    expect(validateChange('123456789012345678901')).toBe('Change is too large')
+    expect(validateChange('-123456789012345678901')).toBe('Change is too large')
   })
 })
 
