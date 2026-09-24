@@ -43,13 +43,17 @@ function renderApp(initial = [], overrides = [], initialTransactions = []) {
   return { user, backend, transactionsBackend }
 }
 
-async function fillForm(user, { name, amount }) {
-  const nameInput = screen.getByLabelText('Name')
-  const amountInput = screen.getByLabelText('Amount')
-  await user.clear(nameInput)
-  await user.clear(amountInput)
-  if (name) await user.type(nameInput, name)
-  if (amount) await user.type(amountInput, amount)
+async function openInitialInvestments(user) {
+  const button = await screen.findByRole('button', { name: 'Edit Initial Investments' })
+  // disabled until the catalog (which its dropdown needs) has loaded
+  await waitFor(() => expect(button).toBeEnabled())
+  await user.click(button)
+  return (await screen.findByRole('heading', { name: 'Initial investments' })).closest('dialog')
+}
+
+async function fillInitialInvestmentForm(user, { name, amount }) {
+  if (name !== undefined) await user.selectOptions(screen.getByLabelText('Investment'), name)
+  if (amount !== undefined) await user.type(screen.getByLabelText('Amount'), amount)
 }
 
 async function fillTransactionModal(user, { name, change, timestamp }) {
@@ -60,9 +64,9 @@ async function fillTransactionModal(user, { name, change, timestamp }) {
   }
 }
 
-// The transaction modal's investment dropdown always renders a <option> per catalog entry, even while
-// the dialog is closed, so a bare getByText('Ethereum') etc. can also match an option; scope to a
-// section to avoid that.
+// The same investment names show up in several places (the investments table, the transactions table, and
+// a modal's table or dropdown while it is open), so a bare getByText('Ethereum') can match more than one
+// element; scope queries to the section or dialog under test.
 function investmentsSection() {
   return screen.getByRole('heading', { name: 'Your investments' }).closest('section')
 }
@@ -122,11 +126,12 @@ describe('the investments table (the portfolio)', () => {
     expect(within(rows[1]).getByText('—')).toBeInTheDocument()
   })
 
-  it('is read-only: there is nothing to edit or delete in it', async () => {
+  it('is read-only: its rows have nothing to edit or delete, only the button for the initial investments', async () => {
     renderApp([INITIAL_GOLD], [], [BTC_TX])
     await within(investmentsSection()).findAllByRole('row')
 
-    expect(within(investmentsSection()).queryAllByRole('button')).toHaveLength(0)
+    const buttons = within(investmentsSection()).getAllByRole('button')
+    expect(buttons.map((button) => button.textContent)).toEqual(['Edit Initial Investments'])
   })
 
   it('shows the error and lets the user retry', async () => {
@@ -141,86 +146,229 @@ describe('the investments table (the portfolio)', () => {
   })
 })
 
-describe('adding an initial investment', () => {
-  it('shows it in the investments table and clears the form', async () => {
-    const { user, backend } = renderApp()
-    await screen.findByText(/No investments yet/)
+describe('the initial investments window', () => {
+  it('opens from the button and lists the initial investments sorted by name', async () => {
+    const { user } = renderApp([INITIAL_GOLD, INITIAL_ETH])
 
-    expect(screen.getByRole('heading', { name: 'Add initial investment' })).toBeInTheDocument()
-    await fillForm(user, { name: '  Ethereum ', amount: '3.5' })
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    const dialog = await openInitialInvestments(user)
+    const rows = await within(dialog).findAllByRole('row')
 
-    const rows = await within(investmentsSection()).findAllByRole('row')
+    expect(rows).toHaveLength(3)
     expect(within(rows[1]).getByText('Ethereum')).toBeInTheDocument()
     expect(within(rows[1]).getByText('Cryptocurrency')).toBeInTheDocument()
     expect(within(rows[1]).getByText('3.5')).toBeInTheDocument()
-    expect(screen.getByLabelText('Name')).toHaveValue('')
-    expect(screen.getByLabelText('Amount')).toHaveValue('')
+    expect(within(rows[2]).getByText('Gold')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('Precious Metal')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('2')).toBeInTheDocument()
+  })
+
+  it('shows an empty state', async () => {
+    const { user } = renderApp()
+
+    const dialog = await openInitialInvestments(user)
+
+    expect(await within(dialog).findByText(/No initial investments yet/)).toBeInTheDocument()
+  })
+
+  it('is closed by its Close button', async () => {
+    const { user } = renderApp()
+    const dialog = await openInitialInvestments(user)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('heading', { name: 'Initial investments' })).not.toBeInTheDocument()
+  })
+
+  it('does not fetch anything until it is opened', async () => {
+    let requests = 0
+    const counting = http.get('/api/investments', () => {
+      requests += 1
+      return HttpResponse.json([])
+    })
+    const { user } = renderApp([], [counting])
+    await screen.findByText(/No investments yet/)
+    expect(requests).toBe(0)
+
+    await openInitialInvestments(user)
+
+    await waitFor(() => expect(requests).toBe(1))
+  })
+
+  it('shows the error and lets the user retry', async () => {
+    const failOnce = http.get('/api/investments', () => HttpResponse.error(), { once: true })
+    const { user } = renderApp([INITIAL_GOLD], [failOnce])
+
+    const dialog = await openInitialInvestments(user)
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not reach the server')
+    await user.click(within(dialog).getByRole('button', { name: 'Retry' }))
+
+    expect(await within(dialog).findByText('Precious Metal')).toBeInTheDocument()
+  })
+
+  it('cannot be opened while the catalog is unavailable', async () => {
+    const catalogDown = http.get('/api/catalog', () => HttpResponse.error())
+    renderApp([], [catalogDown])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the server')
+    expect(screen.getByRole('button', { name: 'Edit Initial Investments' })).toBeDisabled()
+  })
+})
+
+describe('adding an initial investment', () => {
+  it('opens a second modal, and the new row appears in the window and in the investments table', async () => {
+    const { user, backend } = renderApp()
+    const dialog = await openInitialInvestments(user)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add Initial Investment' }))
+    expect(screen.getByRole('heading', { name: 'Add initial investment' })).toBeInTheDocument()
+    await fillInitialInvestmentForm(user, { name: 'Ethereum', amount: '3.5' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    // the second modal closes and the window underneath is still open, now with the new row
+    expect(screen.queryByRole('heading', { name: 'Add initial investment' })).not.toBeInTheDocument()
+    const windowRows = await within(dialog).findAllByRole('row')
+    expect(within(windowRows[1]).getByText('Ethereum')).toBeInTheDocument()
+    expect(within(windowRows[1]).getByText('3.5')).toBeInTheDocument()
+    // and the investments table behind it follows
+    const tableRows = await within(investmentsSection()).findAllByRole('row')
+    expect(within(tableRows[1]).getByText('Ethereum')).toBeInTheDocument()
+    expect(within(tableRows[1]).getByText('Cryptocurrency')).toBeInTheDocument()
     expect([...backend.rows.values()][0]).toMatchObject({ name: 'Ethereum', amount: 3.5 })
   })
 
-  it('adds to the total of an investment that already exists', async () => {
+  it('adds to the total of an investment that already exists, as a second row', async () => {
     const { user } = renderApp([INITIAL_GOLD])
     await within(investmentsSection()).findByText('2')
+    const dialog = await openInitialInvestments(user)
 
-    await fillForm(user, { name: 'Gold', amount: '3' })
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add Initial Investment' }))
+    await fillInitialInvestmentForm(user, { name: 'Gold', amount: '3' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await within(investmentsSection()).findByText('5')).toBeInTheDocument()
     expect(within(investmentsSection()).getAllByRole('row')).toHaveLength(2)
+    expect(await within(dialog).findAllByRole('row')).toHaveLength(3)
   })
 
   it('validates on the client without calling the backend', async () => {
     const { user, backend } = renderApp()
-    await screen.findByText(/No investments yet/)
+    const dialog = await openInitialInvestments(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Add Initial Investment' }))
 
-    await fillForm(user, { name: '', amount: 'abc' })
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await fillInitialInvestmentForm(user, { amount: 'abc' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
 
-    expect(screen.getByText('Name is required')).toBeInTheDocument()
+    expect(screen.getByText('Choose an investment')).toBeInTheDocument()
     expect(screen.getByText('Enter a number such as 5 or 3.5')).toBeInTheDocument()
     expect(backend.rows.size).toBe(0)
   })
 
-  it('shows field errors returned by the backend', async () => {
+  it('shows the backend error for an unknown investment name and keeps the second modal open', async () => {
     const { user } = renderApp()
-    await screen.findByText(/No investments yet/)
+    const dialog = await openInitialInvestments(user)
     server.use(
       http.post('/api/investments', () =>
         HttpResponse.json(
           {
             title: 'Invalid investment name',
             status: 400,
-            detail: 'Unknown investment name: Dogecoin',
-            errors: [{ field: 'name', message: 'Unknown investment name: Dogecoin' }],
+            detail: 'Unknown investment name: Gold',
+            errors: [{ field: 'name', message: 'Unknown investment name: Gold' }],
           },
           { status: 400 },
         ),
       ),
     )
 
-    await fillForm(user, { name: 'Dogecoin', amount: '5' })
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add Initial Investment' }))
+    await fillInitialInvestmentForm(user, { name: 'Gold', amount: '2' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
 
-    expect(await screen.findByText('Unknown investment name: Dogecoin')).toBeInTheDocument()
-    expect(screen.getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true')
-    // the user's input is kept so they can correct it
-    expect(screen.getByLabelText('Name')).toHaveValue('Dogecoin')
+    expect(await screen.findByText('Unknown investment name: Gold')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Add initial investment' })).toBeInTheDocument()
   })
 
-  it('shows a general error when the server fails', async () => {
-    const { user } = renderApp()
-    await screen.findByText(/No investments yet/)
+  it('closes the second modal without submitting on Cancel', async () => {
+    const { user, backend } = renderApp()
+    const dialog = await openInitialInvestments(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Add Initial Investment' }))
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('heading', { name: 'Add initial investment' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Initial investments' })).toBeInTheDocument()
+    expect(backend.rows.size).toBe(0)
+  })
+})
+
+describe('editing an initial investment', () => {
+  it('prefills the second modal and updates the window and the investments table', async () => {
+    const { user, backend } = renderApp([INITIAL_GOLD])
+    const dialog = await openInitialInvestments(user)
+
+    await user.click(await within(dialog).findByRole('button', { name: 'Edit initial investment Gold' }))
+    expect(screen.getByRole('heading', { name: 'Edit initial investment' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Investment')).toHaveValue('Gold')
+    expect(screen.getByLabelText('Amount')).toHaveValue('2')
+
+    await user.clear(screen.getByLabelText('Amount'))
+    await user.type(screen.getByLabelText('Amount'), '4')
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await within(dialog).findByText('4')).toBeInTheDocument()
+    expect(await within(investmentsSection()).findByText('4')).toBeInTheDocument()
+    expect(backend.rows.get(INITIAL_GOLD.id)).toMatchObject({ name: 'Gold', amount: 4 })
+  })
+
+  it('can change which investment a row is for', async () => {
+    const { user, backend } = renderApp([INITIAL_GOLD])
+    const dialog = await openInitialInvestments(user)
+
+    await user.click(await within(dialog).findByRole('button', { name: 'Edit initial investment Gold' }))
+    await user.selectOptions(screen.getByLabelText('Investment'), 'Bitcoin')
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await within(dialog).findByText('Cryptocurrency')).toBeInTheDocument()
+    expect(backend.rows.get(INITIAL_GOLD.id)).toMatchObject({ name: 'Bitcoin' })
+  })
+})
+
+describe('deleting an initial investment', () => {
+  it('asks for confirmation, then removes it from the window and the investments table', async () => {
+    const { user, backend } = renderApp([INITIAL_GOLD, INITIAL_ETH])
+    const dialog = await openInitialInvestments(user)
+    await user.click(await within(dialog).findByRole('button', { name: 'Delete initial investment Gold' }))
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel delete initial investment Gold' }))
+    expect(backend.rows.size).toBe(2)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete initial investment Gold' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm delete initial investment Gold' }))
+
+    await waitFor(() => expect(within(dialog).queryByText('Gold')).not.toBeInTheDocument())
+    await waitFor(() => expect(within(investmentsSection()).queryByText('Gold')).not.toBeInTheDocument())
+    expect(within(investmentsSection()).getByText('Ethereum')).toBeInTheDocument()
+    expect(backend.rows.has(INITIAL_GOLD.id)).toBe(false)
+  })
+
+  it('shows an error banner in the window when deleting fails', async () => {
+    const { user } = renderApp([INITIAL_GOLD])
+    const dialog = await openInitialInvestments(user)
     server.use(
-      http.post('/api/investments', () =>
+      http.delete('/api/investments/:id', () =>
         HttpResponse.json({ title: 'Internal server error', status: 500, detail: 'An unexpected error occurred' }, { status: 500 }),
       ),
     )
 
-    await fillForm(user, { name: 'Gold', amount: '5' })
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(await within(dialog).findByRole('button', { name: 'Delete initial investment Gold' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm delete initial investment Gold' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('An unexpected error occurred')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('An unexpected error occurred')
+    expect(within(dialog).getByText('Gold')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Dismiss' }))
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 

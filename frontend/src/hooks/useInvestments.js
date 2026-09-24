@@ -12,11 +12,13 @@ const INVESTMENTS_KEY = ['investments']
 // The backend returns rows in no particular order, so a row would jump around after an edit
 const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 
-export function useInvestments() {
+// `enabled: false` holds the request back, e.g. until the modal that lists these rows is opened
+export function useInvestments({ enabled = true } = {}) {
   return useQuery({
     queryKey: INVESTMENTS_KEY,
     queryFn: listInvestments,
     select: (investments) => [...investments].sort(byName),
+    enabled,
   })
 }
 

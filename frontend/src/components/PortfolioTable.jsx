@@ -6,7 +6,12 @@ import { formatAmount } from '../utils/amount.js'
  */
 export default function PortfolioTable({ entries }) {
   if (entries.length === 0) {
-    return <p className="empty">No investments yet. Add an initial investment above or a transaction below.</p>
+    return (
+      <p className="empty">
+        No investments yet. Use &ldquo;Edit Initial Investments&rdquo; to enter what you already own, or add a
+        transaction below.
+      </p>
+    )
   }
 
   return (
