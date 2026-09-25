@@ -27,30 +27,6 @@ describe('listInvestments', () => {
     ])
   })
 
-  it('returns worth as a string too, since it is the same NUMERIC(38,18) column type as amount', async () => {
-    server.use(
-      http.get('/api/investments', () =>
-        jsonText('[{"id":"a","name":"Gold","amount":5,"investmentType":"Precious Metal","worth":1.000000000000000000}]'),
-      ),
-    )
-
-    await expect(listInvestments()).resolves.toEqual([
-      { id: 'a', name: 'Gold', amount: '5', investmentType: 'Precious Metal', worth: '1.000000000000000000' },
-    ])
-  })
-
-  it('leaves a null worth (e.g. not yet derived) as null rather than "null"', async () => {
-    server.use(
-      http.get('/api/investments', () =>
-        jsonText('[{"id":"a","name":"Gold","amount":5,"investmentType":null,"worth":null}]'),
-      ),
-    )
-
-    await expect(listInvestments()).resolves.toEqual([
-      { id: 'a', name: 'Gold', amount: '5', investmentType: null, worth: null },
-    ])
-  })
-
   it('does not touch the word "amount" inside a name', async () => {
     server.use(
       http.get('/api/investments', () => jsonText('[{"id":"a","name":"say \\"amount\\":5","amount":1}]')),

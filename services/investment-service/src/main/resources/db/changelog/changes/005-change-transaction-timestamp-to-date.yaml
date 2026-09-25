@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-change-transaction-timestamp-to-date
+      author: ahmet-cskn
+      changes:
+        # The time of day is never used, so the timestamptz becomes a plain date. Existing values are read as UTC
+        # (they were stored as UTC instants), which keeps the conversion the same on every server.
+        - sql:
+            sql: >
+              ALTER TABLE transaction_history
+              ALTER COLUMN "timestamp" TYPE date USING ("timestamp" AT TIME ZONE 'UTC')::date
+            rollback: >
+              ALTER TABLE transaction_history
+              ALTER COLUMN "timestamp" TYPE timestamp with time zone USING ("timestamp"::timestamp AT TIME ZONE 'UTC')
+        - renameColumn:
+            tableName: transaction_history
+            oldColumnName: timestamp
+            newColumnName: date

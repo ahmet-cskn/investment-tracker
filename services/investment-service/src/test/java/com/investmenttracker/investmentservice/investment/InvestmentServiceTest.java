@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
@@ -41,15 +42,15 @@ class InvestmentServiceTest {
 	void stubKnownCatalogEntries() {
 		// lenient: not every test in this class exercises the catalog lookup
 		lenient().when(investmentCatalogRepository.findById("Gold"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal", AssetType.METAL, "GOLD")));
 		lenient().when(investmentCatalogRepository.findById("Silver"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Silver", "Precious Metal")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Silver", "Precious Metal", AssetType.METAL, "SILVER")));
 		lenient().when(investmentCatalogRepository.findById("Ethereum"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Ethereum", "Cryptocurrency")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Ethereum", "Cryptocurrency", AssetType.CRYPTO, "ETH")));
 	}
 
 	@Test
-	void createLooksUpTheCatalogAndSetsTypeAndWorth() {
+	void createLooksUpTheCatalogAndSetsTheType() {
 		when(investmentRepository.save(any(Investment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		InvestmentResponse response = investmentService
@@ -58,20 +59,18 @@ class InvestmentServiceTest {
 		assertThat(response.name()).isEqualTo("Gold");
 		assertThat(response.amount()).isEqualByComparingTo("5");
 		assertThat(response.investmentType()).isEqualTo("Precious Metal");
-		assertThat(response.worth()).isEqualByComparingTo("1");
 	}
 
 	@Test
-	void createIgnoresAnyClientSuppliedTypeOrWorth() {
+	void createIgnoresAnyClientSuppliedType() {
 		// CreateInvestmentRequest only has name and amount, so this is enforced by the API shape itself;
-		// this test documents that create() never reads type/worth from anywhere but the catalog
+		// this test documents that create() never reads the type from anywhere but the catalog
 		when(investmentRepository.save(any(Investment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		InvestmentResponse response = investmentService
 				.create(new CreateInvestmentRequest("Ethereum", new BigDecimal("2")));
 
 		assertThat(response.investmentType()).isEqualTo("Cryptocurrency");
-		assertThat(response.worth()).isEqualByComparingTo("1");
 	}
 
 	@Test
@@ -111,7 +110,7 @@ class InvestmentServiceTest {
 	}
 
 	@Test
-	void updateChangesNameAmountTypeAndWorth() {
+	void updateChangesNameAmountAndType() {
 		UUID id = UUID.randomUUID();
 		Investment existing = new Investment("Gold", new BigDecimal("5"));
 		when(investmentRepository.findById(id)).thenReturn(Optional.of(existing));
@@ -122,7 +121,6 @@ class InvestmentServiceTest {
 		assertThat(response.name()).isEqualTo("Silver");
 		assertThat(response.amount()).isEqualByComparingTo("12.5");
 		assertThat(response.investmentType()).isEqualTo("Precious Metal");
-		assertThat(response.worth()).isEqualByComparingTo("1");
 		assertThat(existing.getName()).isEqualTo("Silver");
 	}
 

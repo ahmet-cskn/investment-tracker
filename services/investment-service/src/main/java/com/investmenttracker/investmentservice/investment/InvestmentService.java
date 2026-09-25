@@ -2,7 +2,6 @@ package com.investmenttracker.investmentservice.investment;
 
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
-import com.investmenttracker.investmentservice.catalog.PlaceholderWorth;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
 import com.investmenttracker.investmentservice.investment.dto.CreateInvestmentRequest;
 import com.investmenttracker.investmentservice.investment.dto.InvestmentResponse;
@@ -59,11 +58,10 @@ public class InvestmentService {
 		return investmentCatalogRepository.findById(name).orElseThrow(() -> new UnknownInvestmentNameException(name));
 	}
 
-	// investmentType and worth are derived from the catalog, never taken from the request, so a
-	// client cannot set them to something inconsistent with the investment's name
+	// investmentType is derived from the catalog, never taken from the request, so a
+	// client cannot set it to something inconsistent with the investment's name
 	private void applyCatalogEntry(Investment investment, InvestmentCatalogEntry catalogEntry) {
 		investment.setInvestmentType(catalogEntry.getInvestmentType());
-		investment.setWorth(PlaceholderWorth.VALUE);
 	}
 
 	private Investment getOrThrow(UUID id) {

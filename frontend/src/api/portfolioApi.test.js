@@ -11,29 +11,29 @@ describe('listPortfolio', () => {
     server.use(
       http.get('/api/portfolio', () =>
         jsonText(
-          '[{"name":"Gold","investmentType":"Precious Metal","amount":6.000000000000000000,"worth":1},' +
-            '{"name":"Silver","investmentType":"Precious Metal","amount":-4,"worth":1},' +
-            '{"name":"Ethereum","investmentType":"Cryptocurrency","amount":3E-18,"worth":1}]',
+          '[{"name":"Gold","investmentType":"Precious Metal","amount":6.000000000000000000,"worth":1029.123456789012345678},' +
+            '{"name":"Silver","investmentType":"Precious Metal","amount":-4,"worth":-92.5},' +
+            '{"name":"Ethereum","investmentType":"Cryptocurrency","amount":3E-18,"worth":1E-16}]',
         ),
       ),
     )
 
     await expect(listPortfolio()).resolves.toEqual([
-      { name: 'Gold', investmentType: 'Precious Metal', amount: '6.000000000000000000', worth: '1' },
-      { name: 'Silver', investmentType: 'Precious Metal', amount: '-4', worth: '1' },
-      { name: 'Ethereum', investmentType: 'Cryptocurrency', amount: '3E-18', worth: '1' },
+      { name: 'Gold', investmentType: 'Precious Metal', amount: '6.000000000000000000', worth: '1029.123456789012345678' },
+      { name: 'Silver', investmentType: 'Precious Metal', amount: '-4', worth: '-92.5' },
+      { name: 'Ethereum', investmentType: 'Cryptocurrency', amount: '3E-18', worth: '1E-16' },
     ])
   })
 
-  it('leaves a missing investment type as null', async () => {
+  it('leaves a missing investment type and a missing worth as null rather than "null"', async () => {
     server.use(
       http.get('/api/portfolio', () =>
-        jsonText('[{"name":"Unlisted","investmentType":null,"amount":2,"worth":1}]'),
+        jsonText('[{"name":"Unlisted","investmentType":null,"amount":2,"worth":null}]'),
       ),
     )
 
     await expect(listPortfolio()).resolves.toEqual([
-      { name: 'Unlisted', investmentType: null, amount: '2', worth: '1' },
+      { name: 'Unlisted', investmentType: null, amount: '2', worth: null },
     ])
   })
 

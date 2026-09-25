@@ -11,3 +11,10 @@ spring:
     hibernate:
       # The schema is owned by Liquibase; Hibernate only checks that entities match it
       ddl-auto: validate
+
+pricing:
+  alphavantage:
+    base-url: https://www.alphavantage.co
+    # A free key from https://www.alphavantage.co/support/#api-key. Without one the app runs fine, but
+    # prices are unavailable. Never commit it: keep it in the git-ignored .env file (see .env.example).
+    api-key: ${ALPHAVANTAGE_API_KEY:}

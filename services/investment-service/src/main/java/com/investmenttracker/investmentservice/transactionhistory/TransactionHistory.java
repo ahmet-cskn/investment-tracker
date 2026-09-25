@@ -7,7 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -33,18 +33,23 @@ public class TransactionHistory {
 	@Column(nullable = false, precision = 38, scale = 18)
 	private BigDecimal change;
 
+	// The day the change happened; the time of day is not tracked
 	@Column(nullable = false)
-	private Instant timestamp;
+	private LocalDate date;
+
+	// What the change was worth in USD on that day (price times change), or null if no price could be obtained
+	@Column(precision = 38, scale = 18)
+	private BigDecimal worth;
 
 	protected TransactionHistory() {
 		// required by JPA
 	}
 
-	public TransactionHistory(String name, String investmentType, BigDecimal change, Instant timestamp) {
+	public TransactionHistory(String name, String investmentType, BigDecimal change, LocalDate date) {
 		this.name = name;
 		this.investmentType = investmentType;
 		this.change = change;
-		this.timestamp = timestamp;
+		this.date = date;
 	}
 
 	public UUID getId() {
@@ -75,12 +80,20 @@ public class TransactionHistory {
 		this.change = change;
 	}
 
-	public Instant getTimestamp() {
-		return timestamp;
+	public LocalDate getDate() {
+		return date;
 	}
 
-	public void setTimestamp(Instant timestamp) {
-		this.timestamp = timestamp;
+	public void setDate(LocalDate date) {
+		this.date = date;
+	}
+
+	public BigDecimal getWorth() {
+		return worth;
+	}
+
+	public void setWorth(BigDecimal worth) {
+		this.worth = worth;
 	}
 
 }

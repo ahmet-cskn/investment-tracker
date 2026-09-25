@@ -9,23 +9,25 @@ import { fakeCatalogHandler } from './test/fakeCatalog.js'
 import { fakePortfolioHandler } from './test/fakePortfolio.js'
 import { createFakeTransactionsBackend } from './test/fakeTransactionsBackend.js'
 import { server } from './test/server.js'
+import { formatDate } from './utils/date.js'
+import { formatUsd } from './utils/money.js'
 
 // Initial investments (the rows behind /api/investments)
 const INITIAL_GOLD = { id: 'id-a', name: 'Gold', amount: '2' }
 const INITIAL_ETH = { id: 'id-b', name: 'Ethereum', amount: '3.5' }
 
 // Transactions
-const BTC_TX = { id: 'tx-a', name: 'Bitcoin', change: '-1.5', timestamp: '2026-01-15T10:00:00Z' }
-const GOLD_TX = { id: 'tx-b', name: 'Gold', change: '2.5', timestamp: '2026-02-15T10:00:00Z' }
-const GOLD_MINUS_ONE = { id: 'tx-c', name: 'Gold', change: '-1', timestamp: '2026-03-01T10:00:00Z' }
-const GOLD_PLUS_FIVE = { id: 'tx-d', name: 'Gold', change: '5', timestamp: '2026-03-02T10:00:00Z' }
+const BTC_TX = { id: 'tx-a', name: 'Bitcoin', change: '-1.5', date: '2026-01-15' }
+const GOLD_TX = { id: 'tx-b', name: 'Gold', change: '2.5', date: '2026-02-15' }
+const GOLD_MINUS_ONE = { id: 'tx-c', name: 'Gold', change: '-1', date: '2026-03-01' }
+const GOLD_PLUS_FIVE = { id: 'tx-d', name: 'Gold', change: '5', date: '2026-03-02' }
 
 // App always renders the portfolio, the transactions and the catalog-backed "Add Transaction" button, so
 // every render needs all of them mocked. initial/initialTransactions seed the fake backends and the fake
 // portfolio is computed from both, like the real one; overrides let a test customise just what it needs.
-function renderApp(initial = [], overrides = [], initialTransactions = []) {
+function renderApp(initial = [], overrides = [], initialTransactions = [], transactionPrices = {}) {
   const backend = createFakeBackend(initial)
-  const transactionsBackend = createFakeTransactionsBackend(initialTransactions)
+  const transactionsBackend = createFakeTransactionsBackend(initialTransactions, { prices: transactionPrices })
   server.use(
     ...overrides,
     ...backend.handlers,
@@ -56,11 +58,11 @@ async function fillInitialInvestmentForm(user, { name, amount }) {
   if (amount !== undefined) await user.type(screen.getByLabelText('Amount'), amount)
 }
 
-async function fillTransactionModal(user, { name, change, timestamp }) {
+async function fillTransactionModal(user, { name, change, date }) {
   if (name !== undefined) await user.selectOptions(screen.getByLabelText('Investment'), name)
   if (change !== undefined) await user.type(screen.getByLabelText('Change'), change)
-  if (timestamp !== undefined) {
-    fireEvent.change(screen.getByLabelText('Timestamp'), { target: { value: timestamp } })
+  if (date !== undefined) {
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } })
   }
 }
 
@@ -74,6 +76,59 @@ function investmentsSection() {
 function transactionsSection() {
   return screen.getByRole('heading', { name: 'Your transactions' }).closest('section')
 }
+
+function netWorth() {
+  return screen.getByRole('region', { name: 'Net worth' })
+}
+
+describe('the net worth', () => {
+  it('shows the sum of the investments table\'s worth column', async () => {
+    // Gold (2 + 2.5) at 100 each, Ethereum 3.5 at 3,000 each, Bitcoin -1.5 at 50,000 each
+    renderApp([INITIAL_GOLD, INITIAL_ETH], [], [BTC_TX, GOLD_TX])
+
+    await within(investmentsSection()).findAllByRole('row')
+
+    expect(within(netWorth()).getByText(formatUsd('-64050'))).toBeInTheDocument()
+    expect(within(netWorth()).queryByText(/without a price/)).not.toBeInTheDocument()
+  })
+
+  it('is zero when there is nothing', async () => {
+    renderApp()
+
+    await screen.findByText(/No investments yet/)
+
+    expect(within(netWorth()).getByText(formatUsd('0'))).toBeInTheDocument()
+  })
+
+  it('leaves out investments without a price and says so', async () => {
+    renderApp([INITIAL_ETH], [], [BTC_TX, GOLD_TX], { Gold: null })
+
+    await within(investmentsSection()).findAllByRole('row')
+
+    // Ethereum 10,500 and Bitcoin -75,000; Gold has no price
+    expect(within(netWorth()).getByText(formatUsd('-64500'))).toBeInTheDocument()
+    expect(within(netWorth()).getByText('1 investment without a price is not included')).toBeInTheDocument()
+  })
+
+  it('is not shown when the portfolio could not be loaded', async () => {
+    renderApp([], [http.get('/api/portfolio', () => HttpResponse.error())])
+
+    await screen.findByText(/Could not reach the server/)
+
+    expect(screen.queryByRole('region', { name: 'Net worth' })).not.toBeInTheDocument()
+  })
+
+  it('updates when a transaction changes the portfolio', async () => {
+    const { user } = renderApp([INITIAL_GOLD])
+    await screen.findByText(formatUsd('200'), { selector: '.net-worth-value' })
+
+    await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
+    await fillTransactionModal(user, { name: 'Gold', change: '3', date: '2026-03-01' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await screen.findByText(formatUsd('500'), { selector: '.net-worth-value' })).toBeInTheDocument()
+  })
+})
 
 describe('the investments table (the portfolio)', () => {
   it('shows an empty state when there is nothing', async () => {
@@ -92,7 +147,20 @@ describe('the investments table (the portfolio)', () => {
     expect(within(rows[1]).getByText('Gold')).toBeInTheDocument()
     expect(within(rows[1]).getByText('Precious Metal')).toBeInTheDocument()
     expect(within(rows[1]).getByText('6')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('1')).toBeInTheDocument()
+    // the worth is the total at the latest price: 6 at 100 each
+    expect(within(rows[1]).getByText(formatUsd('600'))).toBeInTheDocument()
+  })
+
+  it('shows each worth in dollars, negative for a negative total, and a dash where there is no price', async () => {
+    renderApp([INITIAL_ETH], [], [BTC_TX, GOLD_TX], { Gold: null })
+
+    const rows = await within(investmentsSection()).findAllByRole('row')
+
+    // Bitcoin -1.5 at 50,000 each, Ethereum 3.5 at 3,000 each, Gold 2.5 with no price
+    expect(within(rows[1]).getByText(formatUsd('-75000'))).toBeInTheDocument()
+    expect(within(rows[2]).getByText(formatUsd('10500'))).toBeInTheDocument()
+    expect(within(rows[3]).getByText('2.5')).toBeInTheDocument()
+    expect(within(rows[3]).getByText('—')).toBeInTheDocument()
   })
 
   it('lists every investment sorted by name, including ones that only have transactions', async () => {
@@ -109,7 +177,7 @@ describe('the investments table (the portfolio)', () => {
   })
 
   it('keeps a total of zero', async () => {
-    renderApp([INITIAL_GOLD], [], [{ id: 'tx-z', name: 'Gold', change: '-2', timestamp: '2026-03-01T10:00:00Z' }])
+    renderApp([INITIAL_GOLD], [], [{ id: 'tx-z', name: 'Gold', change: '-2', date: '2026-03-01' }])
 
     const rows = await within(investmentsSection()).findAllByRole('row')
 
@@ -123,7 +191,8 @@ describe('the investments table (the portfolio)', () => {
 
     const rows = await within(investmentsSection()).findAllByRole('row')
 
-    expect(within(rows[1]).getByText('—')).toBeInTheDocument()
+    // neither a type nor a price for a name outside the catalog
+    expect(within(rows[1]).getAllByText('—')).toHaveLength(2)
   })
 
   it('is read-only: its rows have nothing to edit or delete, only the button for the initial investments', async () => {
@@ -380,7 +449,7 @@ describe('transaction listing', () => {
   })
 
   it('lists transactions newest first, with type derived from the catalog', async () => {
-    // the fake backend, like the real one, sorts by timestamp; GOLD_TX is later than BTC_TX
+    // the fake backend, like the real one, sorts by date; GOLD_TX is later than BTC_TX
     renderApp([], [], [BTC_TX, GOLD_TX])
 
     const rows = await within(transactionsSection()).findAllByRole('row')
@@ -392,6 +461,49 @@ describe('transaction listing', () => {
     expect(within(rows[2]).getByText('Bitcoin')).toBeInTheDocument()
     expect(within(rows[2]).getByText('-1.5')).toBeInTheDocument()
   })
+
+  it('shows each transaction\'s worth in dollars, negative for a decrease', async () => {
+    // fake prices: Gold 100 per unit, Bitcoin 50,000; GOLD_TX is +2.5 and BTC_TX is -1.5
+    renderApp([], [], [BTC_TX, GOLD_TX])
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[0]).getByText('Worth')).toBeInTheDocument()
+    expect(within(rows[1]).getByText(formatUsd('250'))).toBeInTheDocument()
+    expect(within(rows[2]).getByText(formatUsd('-75000'))).toBeInTheDocument()
+  })
+
+  it('shows a dash for a transaction that was saved without a worth', async () => {
+    renderApp([], [], [GOLD_TX], { Gold: null })
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[1]).getByText('—')).toBeInTheDocument()
+    expect(within(rows[1]).queryByText(formatUsd('250'))).not.toBeInTheDocument()
+  })
+
+  it('shows each transaction\'s date, without a time', async () => {
+    renderApp([], [], [BTC_TX])
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[1]).getByText(formatDate('2026-01-15'))).toBeInTheDocument()
+  })
+
+  it('orders transactions on the same day by name', async () => {
+    const sameDay = '2026-04-01'
+    renderApp([], [], [
+      { id: 'tx-1', name: 'Silver', change: '1', date: sameDay },
+      { id: 'tx-2', name: 'Bitcoin', change: '2', date: sameDay },
+      { id: 'tx-3', name: 'Gold', change: '3', date: sameDay },
+    ])
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[1]).getByText('Bitcoin')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('Gold')).toBeInTheDocument()
+    expect(within(rows[3]).getByText('Silver')).toBeInTheDocument()
+  })
 })
 
 describe('adding a transaction', () => {
@@ -402,12 +514,15 @@ describe('adding a transaction', () => {
     await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
     expect(screen.getByRole('heading', { name: 'Add transaction' })).toBeInTheDocument()
 
-    await fillTransactionModal(user, { name: 'Bitcoin', change: '-1.5', timestamp: '2026-01-15T10:00' })
+    await fillTransactionModal(user, { name: 'Bitcoin', change: '-1.5', date: '2026-01-15' })
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await within(transactionsSection()).findByText('Bitcoin')).toBeInTheDocument()
     expect(within(transactionsSection()).getByText('Cryptocurrency')).toBeInTheDocument()
     expect(within(transactionsSection()).getByText('-1.5')).toBeInTheDocument()
+    // the worth is worked out by the backend, so the modal never asks for it: -1.5 at 50,000 each
+    expect(within(transactionsSection()).getByText(formatUsd('-75000'))).toBeInTheDocument()
+    expect(screen.queryByLabelText('Worth')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Add transaction' })).not.toBeInTheDocument()
     expect([...transactionsBackend.rows.values()][0]).toMatchObject({ name: 'Bitcoin', change: -1.5 })
   })
@@ -430,7 +545,7 @@ describe('adding a transaction', () => {
     )
 
     await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
-    await fillTransactionModal(user, { name: 'Bitcoin', change: '1', timestamp: '2026-01-15T10:00' })
+    await fillTransactionModal(user, { name: 'Bitcoin', change: '1', date: '2026-01-15' })
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await screen.findByText('Unknown investment name: Bitcoin')).toBeInTheDocument()
@@ -457,7 +572,7 @@ describe('editing a transaction', () => {
     expect(screen.getByLabelText('Investment')).toHaveValue('Bitcoin')
     expect(screen.getByLabelText('Change')).toHaveValue('-1.5')
 
-    // Change the investment and the amount; leave the prefilled timestamp as-is
+    // Change the investment and the amount; leave the prefilled date as-is
     await user.selectOptions(screen.getByLabelText('Investment'), 'Gold')
     await user.clear(screen.getByLabelText('Change'))
     await user.type(screen.getByLabelText('Change'), '3')
@@ -465,6 +580,9 @@ describe('editing a transaction', () => {
 
     expect(await within(transactionsSection()).findByText('Precious Metal')).toBeInTheDocument()
     expect(within(transactionsSection()).queryByText('Cryptocurrency')).not.toBeInTheDocument()
+    // the worth was worked out again for the new investment and change: 3 at 100 each
+    expect(within(transactionsSection()).getByText(formatUsd('300'))).toBeInTheDocument()
+    expect(within(transactionsSection()).queryByText(formatUsd('-75000'))).not.toBeInTheDocument()
     expect(transactionsBackend.rows.get(BTC_TX.id)).toMatchObject({ name: 'Gold', change: 3 })
   })
 })
@@ -507,7 +625,7 @@ describe('the investments table follows the transactions', () => {
     await within(investmentsSection()).findByText('2')
 
     await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
-    await fillTransactionModal(user, { name: 'Gold', change: '5', timestamp: '2026-03-01T10:00' })
+    await fillTransactionModal(user, { name: 'Gold', change: '5', date: '2026-03-01' })
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await within(investmentsSection()).findByText('7')).toBeInTheDocument()

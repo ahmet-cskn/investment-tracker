@@ -5,8 +5,9 @@ import { parseJsonKeepingDecimals, request } from './httpClient.js'
  * investment (its initial amount plus the sum of its transaction changes). Read-only and computed by
  * the backend on every request.
  *
- * @typedef {{ name: string, investmentType: string | null, amount: string, worth: string }} PortfolioEntry
+ * @typedef {{ name: string, investmentType: string | null, amount: string, worth: string | null }} PortfolioEntry
  *   `amount` and `worth` are decimal strings (e.g. "6" or "-2.5"), never numbers, to avoid losing precision.
+ *   `worth` is the amount's value in USD at the latest price, or null when no price could be obtained.
  */
 
 const BASE_URL = '/api/portfolio'

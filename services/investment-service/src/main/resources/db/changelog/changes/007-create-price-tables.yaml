@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-price-tables
+      author: ahmet-cskn
+      changes:
+        # A cache of daily closing prices, so the price provider (25 calls a day on the free tier) is only
+        # called to fill or extend it. `price` is per unit of the investment's amount: a gram for the
+        # metals, one coin, one share.
+        - createTable:
+            tableName: price
+            columns:
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: price_pkey
+                    nullable: false
+              - column:
+                  name: date
+                  type: date
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: price_pkey
+                    nullable: false
+              - column:
+                  name: price
+                  type: numeric(38,18)
+                  constraints:
+                    nullable: false
+        # The day each investment's prices were last refreshed from the provider, so that happens at most once a day
+        - createTable:
+            tableName: price_sync
+            columns:
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: synced_on
+                  type: date
+                  constraints:
+                    nullable: false

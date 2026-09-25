@@ -1,8 +1,10 @@
 import { formatAmount } from '../utils/amount.js'
+import { formatUsd } from '../utils/money.js'
 
 /**
  * Read-only: each row is derived by the backend (initial amount plus the sum of the transaction
- * changes), so there is nothing to edit or delete here.
+ * changes, valued at the latest price), so there is nothing to edit or delete here. A worth is missing when
+ * no price could be obtained.
  */
 export default function PortfolioTable({ entries }) {
   if (entries.length === 0) {
@@ -30,7 +32,7 @@ export default function PortfolioTable({ entries }) {
             <td>{name}</td>
             <td>{investmentType ?? '—'}</td>
             <td className="numeric">{formatAmount(amount)}</td>
-            <td className="numeric">{worth != null ? formatAmount(worth) : '—'}</td>
+            <td className="numeric">{worth != null ? formatUsd(worth) : '—'}</td>
           </tr>
         ))}
       </tbody>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatAmount } from '../utils/amount.js'
-import { formatTimestamp } from '../utils/dateTime.js'
+import { formatDate } from '../utils/date.js'
+import { formatUsd } from '../utils/money.js'
 
 /** `onDelete(id)` must return a promise; failures are reported by the parent, so they are ignored here. */
 export default function TransactionTable({ transactions, onEdit, onDelete }) {
@@ -30,7 +31,8 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
           <th>Name</th>
           <th>Type</th>
           <th className="numeric">Change</th>
-          <th>Timestamp</th>
+          <th>Date</th>
+          <th className="numeric">Worth</th>
           <th>
             <span className="visually-hidden">Actions</span>
           </th>
@@ -38,7 +40,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
       </thead>
       <tbody>
         {transactions.map((transaction) => {
-          const { id, name, investmentType, change, timestamp } = transaction
+          const { id, name, investmentType, change, date, worth } = transaction
           const isConfirming = confirmingId === id
           const isDeleting = deletingId === id
           return (
@@ -46,7 +48,8 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
               <td>{name}</td>
               <td>{investmentType ?? '—'}</td>
               <td className="numeric">{formatAmount(change)}</td>
-              <td>{formatTimestamp(timestamp)}</td>
+              <td>{formatDate(date)}</td>
+              <td className="numeric">{worth != null ? formatUsd(worth) : '—'}</td>
               <td className="actions">
                 {isConfirming ? (
                   <>

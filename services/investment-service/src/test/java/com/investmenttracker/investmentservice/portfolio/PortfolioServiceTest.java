@@ -1,18 +1,29 @@
 package com.investmenttracker.investmentservice.portfolio;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.portfolio.dto.PortfolioEntryResponse;
+import com.investmenttracker.investmentservice.pricing.PriceService;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,15 +36,23 @@ class PortfolioServiceTest {
 	@Mock
 	private InvestmentCatalogRepository investmentCatalogRepository;
 
-	@InjectMocks
+	@Mock
+	private PriceService priceService;
+
+	private static final LocalDate TODAY = LocalDate.parse("2026-09-25");
+
 	private PortfolioService portfolioService;
 
 	@BeforeEach
 	void stubCatalog() {
-		org.mockito.Mockito.lenient()
+		Clock clock = Clock.fixed(TODAY.atStartOfDay().toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+		portfolioService = new PortfolioService(portfolioRepository, investmentCatalogRepository, priceService, clock);
+		// Unless a test says otherwise, there is no price for anything
+		lenient().when(priceService.findPrice(anyString(), any(LocalDate.class))).thenReturn(Optional.empty());
+		lenient()
 				.when(investmentCatalogRepository.findAllById(anyIterable()))
-				.thenReturn(List.of(new InvestmentCatalogEntry("Gold", "Precious Metal"),
-						new InvestmentCatalogEntry("Bitcoin", "Cryptocurrency")));
+				.thenReturn(List.of(new InvestmentCatalogEntry("Gold", "Precious Metal", AssetType.METAL, "GOLD"),
+						new InvestmentCatalogEntry("Bitcoin", "Cryptocurrency", AssetType.CRYPTO, "BTC")));
 	}
 
 	private static NameTotal total(String name, String value) {
@@ -99,14 +118,68 @@ class PortfolioServiceTest {
 	}
 
 	@Test
-	void takesTheTypeFromTheCatalogAndUsesThePlaceholderWorth() {
+	void takesTheTypeFromTheCatalog() {
 		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of(total("Gold", "2")));
 		when(portfolioRepository.sumChangesByName()).thenReturn(List.of());
 
-		assertThat(portfolioService.getPortfolio()).singleElement().satisfies(entry -> {
-			assertThat(entry.investmentType()).isEqualTo("Precious Metal");
-			assertThat(entry.worth()).isEqualByComparingTo("1");
-		});
+		assertThat(portfolioService.getPortfolio()).singleElement()
+				.satisfies(entry -> assertThat(entry.investmentType()).isEqualTo("Precious Metal"));
+	}
+
+	@Test
+	void valuesTheTotalAtTheLatestPrice() {
+		// 2 + 4 = 6 grams at 171.5 each, looked up as of today
+		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of(total("Gold", "2")));
+		when(portfolioRepository.sumChangesByName()).thenReturn(List.of(total("Gold", "4")));
+		when(priceService.findPrice("Gold", TODAY)).thenReturn(Optional.of(new BigDecimal("171.5")));
+
+		assertThat(portfolioService.getPortfolio()).singleElement()
+				.satisfies(entry -> assertThat(entry.worth()).isEqualByComparingTo("1029"));
+	}
+
+	@Test
+	void valuesANegativeTotalNegatively() {
+		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of());
+		when(portfolioRepository.sumChangesByName()).thenReturn(List.of(total("Bitcoin", "-2")));
+		when(priceService.findPrice("Bitcoin", TODAY)).thenReturn(Optional.of(new BigDecimal("50000")));
+
+		assertThat(portfolioService.getPortfolio()).singleElement()
+				.satisfies(entry -> assertThat(entry.worth()).isEqualByComparingTo("-100000"));
+	}
+
+	@Test
+	void keepsTheWorthExactAtEighteenDecimals() {
+		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of(total("Bitcoin", "0.000000000000000003")));
+		when(portfolioRepository.sumChangesByName()).thenReturn(List.of());
+		when(priceService.findPrice("Bitcoin", TODAY)).thenReturn(Optional.of(new BigDecimal("0.5")));
+
+		// 1.5E-18 rounds half to even at the 18th decimal
+		assertThat(portfolioService.getPortfolio()).singleElement()
+				.satisfies(entry -> assertThat(entry.worth()).isEqualByComparingTo("0.000000000000000002"));
+	}
+
+	@Test
+	void hasNoWorthWhenNoPriceCouldBeObtained() {
+		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of(total("Gold", "2"), total("Bitcoin", "1")));
+		when(portfolioRepository.sumChangesByName()).thenReturn(List.of());
+		when(priceService.findPrice("Bitcoin", TODAY)).thenReturn(Optional.of(new BigDecimal("50000")));
+
+		List<PortfolioEntryResponse> portfolio = portfolioService.getPortfolio();
+
+		// Gold has no price, but that does not stop Bitcoin from being valued
+		assertThat(portfolio).extracting(PortfolioEntryResponse::name).containsExactly("Bitcoin", "Gold");
+		assertThat(portfolio.get(0).worth()).isEqualByComparingTo("50000");
+		assertThat(portfolio.get(1).worth()).isNull();
+	}
+
+	@Test
+	void hasNoWorthWhenItWouldNotFitTheNumericRange() {
+		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of(total("Gold", "99999999999999999999")));
+		when(portfolioRepository.sumChangesByName()).thenReturn(List.of());
+		when(priceService.findPrice("Gold", TODAY)).thenReturn(Optional.of(new BigDecimal("100")));
+
+		assertThat(portfolioService.getPortfolio()).singleElement()
+				.satisfies(entry -> assertThat(entry.worth()).isNull());
 	}
 
 	@Test
@@ -114,8 +187,12 @@ class PortfolioServiceTest {
 		when(portfolioRepository.sumInitialAmountsByName()).thenReturn(List.of(total("Unlisted", "2")));
 		when(portfolioRepository.sumChangesByName()).thenReturn(List.of());
 
-		assertThat(portfolioService.getPortfolio()).singleElement()
-				.satisfies(entry -> assertThat(entry.investmentType()).isNull());
+		assertThat(portfolioService.getPortfolio()).singleElement().satisfies(entry -> {
+			assertThat(entry.investmentType()).isNull();
+			assertThat(entry.worth()).isNull();
+		});
+		// the price service rejects names outside the catalog, so it is not even asked
+		verify(priceService, never()).findPrice(anyString(), any(LocalDate.class));
 	}
 
 	@Test

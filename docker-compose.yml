@@ -22,6 +22,8 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/investment_tracker
       DB_USERNAME: investment
       DB_PASSWORD: investment
+      # From the git-ignored .env file (see .env.example); optional: without it prices are just unavailable
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
     ports:
       - "8080:8080"
     depends_on:

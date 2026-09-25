@@ -23,12 +23,9 @@ public class Investment {
 	@Column(nullable = false, precision = 38, scale = 18)
 	private BigDecimal amount;
 
-	// Nullable: rows created before these columns existed have neither
+	// Nullable: rows created before this column existed have none
 	@Column(name = "investment_type")
 	private String investmentType;
-
-	@Column(precision = 38, scale = 18)
-	private BigDecimal worth;
 
 	protected Investment() {
 		// required by JPA
@@ -65,14 +62,6 @@ public class Investment {
 
 	public void setInvestmentType(String investmentType) {
 		this.investmentType = investmentType;
-	}
-
-	public BigDecimal getWorth() {
-		return worth;
-	}
-
-	public void setWorth(BigDecimal worth) {
-		this.worth = worth;
 	}
 
 }

@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../api/transactionsApi.js'
-import { toDateTimeLocalValue } from '../utils/dateTime.js'
 import TransactionModal from './TransactionModal.jsx'
 
 const CATALOG = [
@@ -26,12 +25,12 @@ function renderModal(props = {}) {
   return { user, onSubmit, onClose }
 }
 
-// `timestamp` is the datetime-local input's own value format ("YYYY-MM-DDTHH:mm", local time), since
-// jsdom does not implement the native date/time picker widget that userEvent.type would otherwise drive
-async function fillAndSubmit(user, { name, change, timestamp } = {}) {
+// `date` is the date input's own value format ("YYYY-MM-DD"), set directly since jsdom does not implement
+// the native date picker widget that userEvent.type would otherwise drive
+async function fillAndSubmit(user, { name, change, date } = {}) {
   if (name !== undefined) await user.selectOptions(screen.getByLabelText('Investment'), name)
   if (change !== undefined) await user.type(screen.getByLabelText('Change'), change)
-  if (timestamp !== undefined) fireEvent.change(screen.getByLabelText('Timestamp'), { target: { value: timestamp } })
+  if (date !== undefined) fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } })
   await user.click(screen.getByRole('button', { name: 'OK' }))
 }
 
@@ -51,15 +50,15 @@ describe('adding', () => {
     expect(options).toEqual(['Select an investment', 'Bitcoin', 'Gold'])
   })
 
-  it('submits the selected investment, change and an ISO timestamp, then closes', async () => {
+  it('submits the selected investment, the change and the date as typed, then closes', async () => {
     const { user, onSubmit, onClose } = renderModal()
 
-    await fillAndSubmit(user, { name: 'Bitcoin', change: '-1.5', timestamp: '2026-01-15T10:00' })
+    await fillAndSubmit(user, { name: 'Bitcoin', change: '-1.5', date: '2026-01-15' })
 
     expect(onSubmit).toHaveBeenCalledWith({
       name: 'Bitcoin',
       change: '-1.5',
-      timestamp: new Date('2026-01-15T10:00').toISOString(),
+      date: '2026-01-15',
     })
     expect(onClose).toHaveBeenCalled()
   })
@@ -71,14 +70,14 @@ describe('adding', () => {
 
     expect(screen.getByText('Choose an investment')).toBeInTheDocument()
     expect(screen.getByText('Change is required')).toBeInTheDocument()
-    expect(screen.getByText('Timestamp is required')).toBeInTheDocument()
+    expect(screen.getByText('Date is required')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('rejects a change that is not a plain number, without calling onSubmit', async () => {
     const { user, onSubmit } = renderModal()
 
-    await fillAndSubmit(user, { name: 'Gold', change: 'abc', timestamp: '2026-01-15T10:00' })
+    await fillAndSubmit(user, { name: 'Gold', change: 'abc', date: '2026-01-15' })
 
     expect(screen.getByText('Enter a number such as 5, -5 or 3.5')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
@@ -87,7 +86,7 @@ describe('adding', () => {
   it('accepts a zero change', async () => {
     const { user, onSubmit } = renderModal()
 
-    await fillAndSubmit(user, { name: 'Gold', change: '0', timestamp: '2026-01-15T10:00' })
+    await fillAndSubmit(user, { name: 'Gold', change: '0', date: '2026-01-15' })
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ change: '0' }))
   })
@@ -101,7 +100,7 @@ describe('adding', () => {
       }))
     const { user, onClose } = renderModal({ onSubmit })
 
-    await fillAndSubmit(user, { name: 'Bitcoin', change: '1', timestamp: '2026-01-15T10:00' })
+    await fillAndSubmit(user, { name: 'Bitcoin', change: '1', date: '2026-01-15' })
 
     expect(await screen.findByText('Unknown investment name: Bitcoin')).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
@@ -111,23 +110,20 @@ describe('adding', () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('Could not reach the server. Is the backend running?'))
     const { user } = renderModal({ onSubmit })
 
-    await fillAndSubmit(user, { name: 'Bitcoin', change: '1', timestamp: '2026-01-15T10:00' })
+    await fillAndSubmit(user, { name: 'Bitcoin', change: '1', date: '2026-01-15' })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the server')
   })
 })
 
 describe('editing', () => {
-  it('prefills the investment, change and timestamp', () => {
-    const timestamp = '2026-01-15T10:00:00Z'
-    renderModal({ editing: { id: 't1', name: 'Gold', change: '2.500000000000000000', timestamp } })
+  it('prefills the investment, change and date', () => {
+    renderModal({ editing: { id: 't1', name: 'Gold', change: '2.500000000000000000', date: '2026-01-15' } })
 
     expect(screen.getByRole('heading', { name: 'Edit transaction' })).toBeInTheDocument()
     expect(screen.getByLabelText('Investment')).toHaveValue('Gold')
     expect(screen.getByLabelText('Change')).toHaveValue('2.5')
-    // Compared against the same conversion the component uses, so this holds regardless of the test
-    // runner's own timezone (a hardcoded "2026-01-15T10:00" would only be correct in UTC).
-    expect(screen.getByLabelText('Timestamp')).toHaveValue(toDateTimeLocalValue(timestamp))
+    expect(screen.getByLabelText('Date')).toHaveValue('2026-01-15')
   })
 })
 

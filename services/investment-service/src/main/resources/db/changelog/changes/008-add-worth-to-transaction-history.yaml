@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-add-worth-to-transaction-history
+      author: ahmet-cskn
+      changes:
+        # What the change was worth in USD on the day: the day's price times the change (negative for a decrease).
+        # Nullable: when no price could be obtained the transaction is saved without one.
+        - addColumn:
+            tableName: transaction_history
+            columns:
+              - column:
+                  name: worth
+                  type: numeric(38,18)

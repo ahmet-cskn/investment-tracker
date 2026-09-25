@@ -1,0 +1,61 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-add-pricing-columns-to-catalog
+      author: ahmet-cskn
+      changes:
+        # How to look each investment up at the price provider: which kind of asset it is, and its symbol there.
+        # S&P500 is an index, whose history the free tier does not include, so it is tracked through the SPY ETF.
+        - addColumn:
+            tableName: investment_catalog
+            columns:
+              - column:
+                  name: asset_type
+                  type: varchar(20)
+              - column:
+                  name: price_symbol
+                  type: varchar(50)
+        - update:
+            tableName: investment_catalog
+            columns:
+              - column: { name: asset_type, value: METAL }
+              - column: { name: price_symbol, value: GOLD }
+            where: name = 'Gold'
+        - update:
+            tableName: investment_catalog
+            columns:
+              - column: { name: asset_type, value: METAL }
+              - column: { name: price_symbol, value: SILVER }
+            where: name = 'Silver'
+        - update:
+            tableName: investment_catalog
+            columns:
+              - column: { name: asset_type, value: CRYPTO }
+              - column: { name: price_symbol, value: BTC }
+            where: name = 'Bitcoin'
+        - update:
+            tableName: investment_catalog
+            columns:
+              - column: { name: asset_type, value: CRYPTO }
+              - column: { name: price_symbol, value: ETH }
+            where: name = 'Ethereum'
+        - update:
+            tableName: investment_catalog
+            columns:
+              - column: { name: asset_type, value: STOCK }
+              - column: { name: price_symbol, value: SPY }
+            where: name = 'S&P500'
+        - addNotNullConstraint:
+            tableName: investment_catalog
+            columnName: asset_type
+            columnDataType: varchar(20)
+        - addNotNullConstraint:
+            tableName: investment_catalog
+            columnName: price_symbol
+            columnDataType: varchar(50)
+      rollback:
+        - dropColumn:
+            tableName: investment_catalog
+            columnName: price_symbol
+        - dropColumn:
+            tableName: investment_catalog
+            columnName: asset_type
