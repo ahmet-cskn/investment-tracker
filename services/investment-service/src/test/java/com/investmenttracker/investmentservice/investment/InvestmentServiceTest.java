@@ -50,7 +50,7 @@ class InvestmentServiceTest {
 	}
 
 	@Test
-	void createLooksUpTheCatalogAndSetsTypeAndWorth() {
+	void createLooksUpTheCatalogAndSetsTheType() {
 		when(investmentRepository.save(any(Investment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		InvestmentResponse response = investmentService
@@ -59,20 +59,18 @@ class InvestmentServiceTest {
 		assertThat(response.name()).isEqualTo("Gold");
 		assertThat(response.amount()).isEqualByComparingTo("5");
 		assertThat(response.investmentType()).isEqualTo("Precious Metal");
-		assertThat(response.worth()).isEqualByComparingTo("1");
 	}
 
 	@Test
-	void createIgnoresAnyClientSuppliedTypeOrWorth() {
+	void createIgnoresAnyClientSuppliedType() {
 		// CreateInvestmentRequest only has name and amount, so this is enforced by the API shape itself;
-		// this test documents that create() never reads type/worth from anywhere but the catalog
+		// this test documents that create() never reads the type from anywhere but the catalog
 		when(investmentRepository.save(any(Investment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		InvestmentResponse response = investmentService
 				.create(new CreateInvestmentRequest("Ethereum", new BigDecimal("2")));
 
 		assertThat(response.investmentType()).isEqualTo("Cryptocurrency");
-		assertThat(response.worth()).isEqualByComparingTo("1");
 	}
 
 	@Test
@@ -112,7 +110,7 @@ class InvestmentServiceTest {
 	}
 
 	@Test
-	void updateChangesNameAmountTypeAndWorth() {
+	void updateChangesNameAmountAndType() {
 		UUID id = UUID.randomUUID();
 		Investment existing = new Investment("Gold", new BigDecimal("5"));
 		when(investmentRepository.findById(id)).thenReturn(Optional.of(existing));
@@ -123,7 +121,6 @@ class InvestmentServiceTest {
 		assertThat(response.name()).isEqualTo("Silver");
 		assertThat(response.amount()).isEqualByComparingTo("12.5");
 		assertThat(response.investmentType()).isEqualTo("Precious Metal");
-		assertThat(response.worth()).isEqualByComparingTo("1");
 		assertThat(existing.getName()).isEqualTo("Silver");
 	}
 

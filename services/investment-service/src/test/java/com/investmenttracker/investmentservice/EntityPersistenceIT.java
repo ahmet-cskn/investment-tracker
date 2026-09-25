@@ -36,23 +36,20 @@ class EntityPersistenceIT {
 	private EntityManager entityManager;
 
 	@Test
-	void investmentKeepsTypeAndWorth() {
+	void investmentKeepsItsType() {
 		Investment investment = new Investment("Ethereum", new BigDecimal("3.5"));
 		investment.setInvestmentType("CRYPTO");
-		investment.setWorth(new BigDecimal("0.123456789012345678"));
 
 		Investment reloaded = saveAndReload(investment);
 
 		assertThat(reloaded.getInvestmentType()).isEqualTo("CRYPTO");
-		assertThat(reloaded.getWorth()).isEqualByComparingTo("0.123456789012345678");
 	}
 
 	@Test
-	void investmentWithoutTypeAndWorthIsStillValid() {
+	void investmentWithoutATypeIsStillValid() {
 		Investment reloaded = saveAndReload(new Investment("Gold", new BigDecimal("5")));
 
 		assertThat(reloaded.getInvestmentType()).isNull();
-		assertThat(reloaded.getWorth()).isNull();
 	}
 
 	@Test

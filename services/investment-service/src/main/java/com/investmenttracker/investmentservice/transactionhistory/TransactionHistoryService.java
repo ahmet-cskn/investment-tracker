@@ -4,17 +4,14 @@ import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
 import com.investmenttracker.investmentservice.pricing.PriceService;
+import com.investmenttracker.investmentservice.pricing.Worth;
 import com.investmenttracker.investmentservice.transactionhistory.dto.CreateTransactionRequest;
 import com.investmenttracker.investmentservice.transactionhistory.dto.TransactionResponse;
 import com.investmenttracker.investmentservice.transactionhistory.dto.UpdateTransactionRequest;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -26,15 +23,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class TransactionHistoryService {
 
-	private static final Logger log = LoggerFactory.getLogger(TransactionHistoryService.class);
-
 	// Several transactions can share a day, so name and id break the tie to keep the order stable
 	private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("date"), Sort.Order.asc("name"),
 			Sort.Order.asc("id"));
-
-	// The worth column is NUMERIC(38,18): 18 decimals and so at most 20 digits before the point
-	private static final int WORTH_SCALE = 18;
-	private static final int WORTH_MAX_INTEGER_DIGITS = 20;
 
 	private final TransactionHistoryRepository transactionHistoryRepository;
 	private final InvestmentCatalogRepository investmentCatalogRepository;
@@ -91,17 +82,7 @@ public class TransactionHistoryService {
 	 * reached, or a stock older than its free history) or the result would not fit the column.
 	 */
 	private BigDecimal worthOf(String name, LocalDate date, BigDecimal change) {
-		Optional<BigDecimal> price = priceService.findPrice(name, date);
-		if (price.isEmpty()) {
-			return null;
-		}
-		BigDecimal worth = price.get().multiply(change).setScale(WORTH_SCALE, RoundingMode.HALF_EVEN);
-		if (worth.precision() - worth.scale() > WORTH_MAX_INTEGER_DIGITS) {
-			log.warn("The worth of a {} change of {} is too large to store; saving the transaction without one", name,
-					change);
-			return null;
-		}
-		return worth;
+		return Worth.of(priceService.findPrice(name, date), change).orElse(null);
 	}
 
 	// investmentType is derived from the catalog, exactly as on Investment, so it can never disagree with name

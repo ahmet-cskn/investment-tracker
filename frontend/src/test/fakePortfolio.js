@@ -4,6 +4,7 @@ import { catalogTypeByName } from './fakeCatalog.js'
 /**
  * Stand-in for GET /api/portfolio that computes from the other two fakes' in-memory rows on every request,
  * like the real backend: initial amount plus the sum of the transaction changes, per name, sorted by name.
+ * The worth is the total at the transactions fake's price for the name (its "latest price"), or null without one.
  * Uses plain numbers, so tests should stick to values that add exactly (integers, halves).
  */
 export function fakePortfolioHandler(investmentsBackend, transactionsBackend) {
@@ -20,9 +21,11 @@ export function fakePortfolioHandler(investmentsBackend, transactionsBackend) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, total]) => {
         const investmentType = catalogTypeByName[name] ?? null
+        const price = transactionsBackend.priceOf(name)
+        const worth = price === null ? 'null' : (total * price).toFixed(18)
         return (
           `{"name":${JSON.stringify(name)},"investmentType":${JSON.stringify(investmentType)},` +
-          `"amount":${total.toFixed(18)},"worth":1.000000000000000000}`
+          `"amount":${total.toFixed(18)},"worth":${worth}}`
         )
       })
 

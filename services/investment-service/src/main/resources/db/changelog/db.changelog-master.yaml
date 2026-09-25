@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/changes/007-create-price-tables.yaml
   - include:
       file: db/changelog/changes/008-add-worth-to-transaction-history.yaml
+  - include:
+      file: db/changelog/changes/009-drop-worth-from-investments.yaml

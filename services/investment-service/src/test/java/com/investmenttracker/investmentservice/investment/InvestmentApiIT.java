@@ -60,7 +60,8 @@ class InvestmentApiIT {
 				.andExpect(jsonPath("$.name").value("Ethereum"))
 				.andExpect(jsonPath("$.amount").value(3.5))
 				.andExpect(jsonPath("$.investmentType").value("Cryptocurrency"))
-				.andExpect(jsonPath("$.worth").value(1));
+				// the worth of a holding is on the portfolio, worked out from the latest price; not stored here
+				.andExpect(jsonPath("$.worth").doesNotExist());
 	}
 
 	@Test
@@ -147,7 +148,7 @@ class InvestmentApiIT {
 	}
 
 	@Test
-	void updateReplacesNameAmountAndDerivesTypeAndWorth() throws Exception {
+	void updateReplacesNameAmountAndDerivesTheType() throws Exception {
 		Investment saved = investmentRepository.save(new Investment("Gold", new BigDecimal("5")));
 
 		mockMvc.perform(put("/api/investments/{id}", saved.getId()).contentType(MediaType.APPLICATION_JSON)
@@ -157,8 +158,7 @@ class InvestmentApiIT {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("Silver"))
 				.andExpect(jsonPath("$.amount").value(12.5))
-				.andExpect(jsonPath("$.investmentType").value("Precious Metal"))
-				.andExpect(jsonPath("$.worth").value(1));
+				.andExpect(jsonPath("$.investmentType").value("Precious Metal"));
 
 		mockMvc.perform(get("/api/investments/{id}", saved.getId()))
 				.andExpect(jsonPath("$.name").value("Silver"));

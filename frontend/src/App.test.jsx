@@ -94,7 +94,20 @@ describe('the investments table (the portfolio)', () => {
     expect(within(rows[1]).getByText('Gold')).toBeInTheDocument()
     expect(within(rows[1]).getByText('Precious Metal')).toBeInTheDocument()
     expect(within(rows[1]).getByText('6')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('1')).toBeInTheDocument()
+    // the worth is the total at the latest price: 6 at 100 each
+    expect(within(rows[1]).getByText(formatUsd('600'))).toBeInTheDocument()
+  })
+
+  it('shows each worth in dollars, negative for a negative total, and a dash where there is no price', async () => {
+    renderApp([INITIAL_ETH], [], [BTC_TX, GOLD_TX], { Gold: null })
+
+    const rows = await within(investmentsSection()).findAllByRole('row')
+
+    // Bitcoin -1.5 at 50,000 each, Ethereum 3.5 at 3,000 each, Gold 2.5 with no price
+    expect(within(rows[1]).getByText(formatUsd('-75000'))).toBeInTheDocument()
+    expect(within(rows[2]).getByText(formatUsd('10500'))).toBeInTheDocument()
+    expect(within(rows[3]).getByText('2.5')).toBeInTheDocument()
+    expect(within(rows[3]).getByText('—')).toBeInTheDocument()
   })
 
   it('lists every investment sorted by name, including ones that only have transactions', async () => {
@@ -125,7 +138,8 @@ describe('the investments table (the portfolio)', () => {
 
     const rows = await within(investmentsSection()).findAllByRole('row')
 
-    expect(within(rows[1]).getByText('—')).toBeInTheDocument()
+    // neither a type nor a price for a name outside the catalog
+    expect(within(rows[1]).getAllByText('—')).toHaveLength(2)
   })
 
   it('is read-only: its rows have nothing to edit or delete, only the button for the initial investments', async () => {

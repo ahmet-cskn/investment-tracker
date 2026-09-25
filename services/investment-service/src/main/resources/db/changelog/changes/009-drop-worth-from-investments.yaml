@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-drop-worth-from-investments
+      author: ahmet-cskn
+      changes:
+        # The worth of a holding is now worked out from the latest price when the portfolio is read, never stored
+        - dropColumn:
+            tableName: investments
+            columnName: worth

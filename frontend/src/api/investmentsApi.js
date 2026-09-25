@@ -4,9 +4,9 @@ import { parseJsonKeepingDecimals, request } from './httpClient.js'
 /**
  * Client for the investment-service investments REST API.
  *
- * @typedef {{ id: string, name: string, amount: string, investmentType: string, worth: string }} Investment
- *   `amount` and `worth` are decimal strings (e.g. "3.5"), never numbers, to avoid losing precision.
- *   `investmentType` and `worth` are derived server-side from `name`; they are not settable here.
+ * @typedef {{ id: string, name: string, amount: string, investmentType: string }} Investment
+ *   `amount` is a decimal string (e.g. "3.5"), never a number, to avoid losing precision.
+ *   `investmentType` is derived server-side from `name`; it is not settable here.
  * @typedef {{ name: string, amount: string }} InvestmentInput
  *   `amount` must be a plain decimal string such as "3.5".
  */
@@ -14,7 +14,7 @@ import { parseJsonKeepingDecimals, request } from './httpClient.js'
 export { ApiError } from './httpClient.js'
 
 const BASE_URL = '/api/investments'
-const DECIMAL_FIELDS = ['amount', 'worth']
+const DECIMAL_FIELDS = ['amount']
 
 // The amount is written into the JSON as a number literal (not a string) without going through a double.
 function serializeInvestment({ name, amount }) {

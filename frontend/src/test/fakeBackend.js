@@ -1,8 +1,8 @@
 import { http, HttpResponse } from 'msw'
 
 // Mirrors the investment_catalog seed data (services/investment-service .../004-create-investment-catalog-table.yaml).
-// Like the real backend, investmentType/worth are derived from name, never stored or accepted as input;
-// a name outside this catalog gets no type or worth, same as an entry a real backend would reject.
+// Like the real backend, investmentType is derived from name, never stored or accepted as input;
+// a name outside this catalog gets no type, same as an entry a real backend would reject.
 const CATALOG = {
   Gold: 'Precious Metal',
   Silver: 'Precious Metal',
@@ -21,8 +21,7 @@ export function createFakeBackend(initial = []) {
 
   const json = (row) => {
     const investmentType = CATALOG[row.name] ?? null
-    const worth = investmentType ? '1.000000000000000000' : null
-    return `{"id":${JSON.stringify(row.id)},"name":${JSON.stringify(row.name)},"amount":${Number(row.amount).toFixed(18)},"investmentType":${JSON.stringify(investmentType)},"worth":${worth ?? 'null'}}`
+    return `{"id":${JSON.stringify(row.id)},"name":${JSON.stringify(row.name)},"amount":${Number(row.amount).toFixed(18)},"investmentType":${JSON.stringify(investmentType)}}`
   }
   const jsonResponse = (body, status = 200) =>
     new HttpResponse(body, { status, headers: { 'Content-Type': 'application/json' } })

@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { catalogTypeByName } from './fakeCatalog.js'
 
 // A price per unit for each investment, so the fake can work a worth out like the real backend does
-// (price times change). Tests override entries through `prices`; null means "no price could be obtained".
+// (price times change, and price times amount for the portfolio). Tests override entries through `prices`; null means "no price could be obtained".
 const DEFAULT_PRICES = { Bitcoin: 50000, Ethereum: 3000, Gold: 100, 'S&P500': 500, Silver: 2 }
 
 /**
@@ -70,5 +70,5 @@ export function createFakeTransactionsBackend(initial = [], { prices = {} } = {}
     }),
   ]
 
-  return { handlers, rows }
+  return { handlers, rows, priceOf }
 }
