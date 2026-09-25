@@ -9,3 +9,7 @@ databaseChangeLog:
       file: db/changelog/changes/004-create-investment-catalog-table.yaml
   - include:
       file: db/changelog/changes/005-change-transaction-timestamp-to-date.yaml
+  - include:
+      file: db/changelog/changes/006-add-pricing-columns-to-catalog.yaml
+  - include:
+      file: db/changelog/changes/007-create-price-tables.yaml

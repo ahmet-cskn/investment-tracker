@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
@@ -41,11 +42,11 @@ class InvestmentServiceTest {
 	void stubKnownCatalogEntries() {
 		// lenient: not every test in this class exercises the catalog lookup
 		lenient().when(investmentCatalogRepository.findById("Gold"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal", AssetType.METAL, "GOLD")));
 		lenient().when(investmentCatalogRepository.findById("Silver"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Silver", "Precious Metal")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Silver", "Precious Metal", AssetType.METAL, "SILVER")));
 		lenient().when(investmentCatalogRepository.findById("Ethereum"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Ethereum", "Cryptocurrency")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Ethereum", "Cryptocurrency", AssetType.CRYPTO, "ETH")));
 	}
 
 	@Test

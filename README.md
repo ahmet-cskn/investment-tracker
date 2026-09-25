@@ -58,6 +58,18 @@ cd frontend && npm install && npm run dev
 
 The dev server proxies `/api` to the backend on port 8080, so no CORS configuration is needed.
 
+## Configuration
+
+Prices come from [Alpha Vantage](https://www.alphavantage.co/support/#api-key)'s free tier (25 calls a day). Get a key,
+then copy `.env.example` to `.env` (which is git-ignored) and set `ALPHAVANTAGE_API_KEY`. Docker Compose passes it to
+the backend; when running the backend directly, export it as an environment variable. Without a key the app still runs,
+but prices are unavailable.
+
+Prices are cached in the database, so the free quota is only spent filling the cache and refreshing each investment at
+most once a day. Gold, silver and crypto have years of daily history; on the free tier a stock (the S&P 500, tracked
+through the SPY ETF) has only its 100 most recent trading days, so an older stock transaction is saved without a worth.
+The cache keeps every price it has seen, so that window grows the longer the app runs.
+
 ## Tests
 
 Backend:
@@ -67,6 +79,9 @@ cd services/investment-service
 mvn test      # unit tests, no Docker needed
 mvn verify    # unit + integration tests (Testcontainers, needs Docker)
 ```
+
+With `ALPHAVANTAGE_API_KEY` set, `mvn verify` also runs `AlphaVantageLiveIT`, which checks the client against the real
+API and uses 5 of the day's 25 calls. Without the key (as in CI) it is skipped.
 
 Frontend:
 

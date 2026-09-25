@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.Mockito.when;
 
+import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.portfolio.dto.PortfolioEntryResponse;
@@ -32,8 +33,8 @@ class PortfolioServiceTest {
 	void stubCatalog() {
 		org.mockito.Mockito.lenient()
 				.when(investmentCatalogRepository.findAllById(anyIterable()))
-				.thenReturn(List.of(new InvestmentCatalogEntry("Gold", "Precious Metal"),
-						new InvestmentCatalogEntry("Bitcoin", "Cryptocurrency")));
+				.thenReturn(List.of(new InvestmentCatalogEntry("Gold", "Precious Metal", AssetType.METAL, "GOLD"),
+						new InvestmentCatalogEntry("Bitcoin", "Cryptocurrency", AssetType.CRYPTO, "BTC")));
 	}
 
 	private static NameTotal total(String name, String value) {

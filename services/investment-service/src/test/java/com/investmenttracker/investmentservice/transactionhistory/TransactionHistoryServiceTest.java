@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
@@ -42,10 +43,10 @@ class TransactionHistoryServiceTest {
 	void stubKnownCatalogEntries() {
 		org.mockito.Mockito.lenient()
 				.when(investmentCatalogRepository.findById("Gold"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal", AssetType.METAL, "GOLD")));
 		org.mockito.Mockito.lenient()
 				.when(investmentCatalogRepository.findById("Bitcoin"))
-				.thenReturn(Optional.of(new InvestmentCatalogEntry("Bitcoin", "Cryptocurrency")));
+				.thenReturn(Optional.of(new InvestmentCatalogEntry("Bitcoin", "Cryptocurrency", AssetType.CRYPTO, "BTC")));
 	}
 
 	@Test
