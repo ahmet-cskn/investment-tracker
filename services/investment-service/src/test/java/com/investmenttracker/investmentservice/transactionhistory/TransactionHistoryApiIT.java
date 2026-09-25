@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ class TransactionHistoryApiIT {
 	void createReturns201WithLocationAndDerivedType() throws Exception {
 		mockMvc.perform(post("/api/transactions").contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": "Bitcoin", "change": -1.5, "timestamp": "2026-01-15T10:00:00Z"}
+						{"name": "Bitcoin", "change": -1.5, "date": "2026-01-15"}
 						"""))
 				.andExpect(status().isCreated())
 				.andExpect(header().string("Location", matchesPattern(".*/api/transactions/[0-9a-f-]{36}")))
@@ -58,14 +58,14 @@ class TransactionHistoryApiIT {
 				.andExpect(jsonPath("$.name").value("Bitcoin"))
 				.andExpect(jsonPath("$.investmentType").value("Cryptocurrency"))
 				.andExpect(jsonPath("$.change").value(-1.5))
-				.andExpect(jsonPath("$.timestamp").value("2026-01-15T10:00:00Z"));
+				.andExpect(jsonPath("$.date").value("2026-01-15"));
 	}
 
 	@Test
 	void createRejectsAnUnknownInvestmentName() throws Exception {
 		mockMvc.perform(post("/api/transactions").contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": "Dogecoin", "change": 1, "timestamp": "2026-01-15T10:00:00Z"}
+						{"name": "Dogecoin", "change": 1, "date": "2026-01-15"}
 						"""))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.title").value("Invalid investment name"))
@@ -76,7 +76,7 @@ class TransactionHistoryApiIT {
 	void createRejectsInvalidBodyWithFieldErrors() throws Exception {
 		mockMvc.perform(post("/api/transactions").contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": " ", "change": null, "timestamp": null}
+						{"name": " ", "change": null, "date": null}
 						"""))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.title").value("Validation failed"))
@@ -87,7 +87,7 @@ class TransactionHistoryApiIT {
 	void createAcceptsAZeroChange() throws Exception {
 		mockMvc.perform(post("/api/transactions").contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": "Gold", "change": 0, "timestamp": "2026-01-15T10:00:00Z"}
+						{"name": "Gold", "change": 0, "date": "2026-01-15"}
 						"""))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.change").value(0));
@@ -95,9 +95,9 @@ class TransactionHistoryApiIT {
 
 	@Test
 	void findAllReturnsEntriesNewestFirst() throws Exception {
-		save("Gold", new BigDecimal("1"), Instant.parse("2026-01-01T00:00:00Z"));
-		save("Bitcoin", new BigDecimal("2"), Instant.parse("2026-03-01T00:00:00Z"));
-		save("Ethereum", new BigDecimal("3"), Instant.parse("2026-02-01T00:00:00Z"));
+		save("Gold", new BigDecimal("1"), LocalDate.parse("2026-01-01"));
+		save("Bitcoin", new BigDecimal("2"), LocalDate.parse("2026-03-01"));
+		save("Ethereum", new BigDecimal("3"), LocalDate.parse("2026-02-01"));
 
 		mockMvc.perform(get("/api/transactions"))
 				.andExpect(status().isOk())
@@ -108,8 +108,21 @@ class TransactionHistoryApiIT {
 	}
 
 	@Test
+	void findAllOrdersTransactionsOnTheSameDayByName() throws Exception {
+		LocalDate sameDay = LocalDate.parse("2026-01-01");
+		save("Silver", new BigDecimal("1"), sameDay);
+		save("Bitcoin", new BigDecimal("2"), sameDay);
+		save("Gold", new BigDecimal("3"), sameDay);
+
+		mockMvc.perform(get("/api/transactions"))
+				.andExpect(jsonPath("$[0].name").value("Bitcoin"))
+				.andExpect(jsonPath("$[1].name").value("Gold"))
+				.andExpect(jsonPath("$[2].name").value("Silver"));
+	}
+
+	@Test
 	void findByIdReturnsEntry() throws Exception {
-		TransactionHistory saved = save("Gold", new BigDecimal("2.5"), Instant.parse("2026-01-01T00:00:00Z"));
+		TransactionHistory saved = save("Gold", new BigDecimal("2.5"), LocalDate.parse("2026-01-01"));
 
 		mockMvc.perform(get("/api/transactions/{id}", saved.getId()))
 				.andExpect(status().isOk())
@@ -127,26 +140,26 @@ class TransactionHistoryApiIT {
 
 	@Test
 	void updateReplacesEveryFieldAndRederivesType() throws Exception {
-		TransactionHistory saved = save("Gold", new BigDecimal("1"), Instant.parse("2026-01-01T00:00:00Z"));
+		TransactionHistory saved = save("Gold", new BigDecimal("1"), LocalDate.parse("2026-01-01"));
 
 		mockMvc.perform(put("/api/transactions/{id}", saved.getId()).contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": "Bitcoin", "change": -2.5, "timestamp": "2026-02-01T00:00:00Z"}
+						{"name": "Bitcoin", "change": -2.5, "date": "2026-02-01"}
 						"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("Bitcoin"))
 				.andExpect(jsonPath("$.investmentType").value("Cryptocurrency"))
 				.andExpect(jsonPath("$.change").value(-2.5))
-				.andExpect(jsonPath("$.timestamp").value("2026-02-01T00:00:00Z"));
+				.andExpect(jsonPath("$.date").value("2026-02-01"));
 	}
 
 	@Test
 	void updateRejectsAnUnknownInvestmentName() throws Exception {
-		TransactionHistory saved = save("Gold", new BigDecimal("1"), Instant.now());
+		TransactionHistory saved = save("Gold", new BigDecimal("1"), LocalDate.now());
 
 		mockMvc.perform(put("/api/transactions/{id}", saved.getId()).contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": "Dogecoin", "change": 1, "timestamp": "2026-01-15T10:00:00Z"}
+						{"name": "Dogecoin", "change": 1, "date": "2026-01-15"}
 						"""))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.title").value("Invalid investment name"));
@@ -156,14 +169,14 @@ class TransactionHistoryApiIT {
 	void updateReturns404WhenMissing() throws Exception {
 		mockMvc.perform(put("/api/transactions/{id}", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"name": "Gold", "change": 1, "timestamp": "2026-01-15T10:00:00Z"}
+						{"name": "Gold", "change": 1, "date": "2026-01-15"}
 						"""))
 				.andExpect(status().isNotFound());
 	}
 
 	@Test
 	void deleteRemovesEntry() throws Exception {
-		TransactionHistory saved = save("Gold", new BigDecimal("1"), Instant.now());
+		TransactionHistory saved = save("Gold", new BigDecimal("1"), LocalDate.now());
 
 		mockMvc.perform(delete("/api/transactions/{id}", saved.getId())).andExpect(status().isNoContent());
 
@@ -175,13 +188,13 @@ class TransactionHistoryApiIT {
 		mockMvc.perform(delete("/api/transactions/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
 	}
 
-	private TransactionHistory save(String name, BigDecimal change, Instant timestamp) {
+	private TransactionHistory save(String name, BigDecimal change, LocalDate date) {
 		String investmentType = switch (name) {
 			case "Gold", "Silver" -> "Precious Metal";
 			case "Bitcoin", "Ethereum" -> "Cryptocurrency";
 			default -> "Stock";
 		};
-		return transactionHistoryRepository.save(new TransactionHistory(name, investmentType, change, timestamp));
+		return transactionHistoryRepository.save(new TransactionHistory(name, investmentType, change, date));
 	}
 
 }

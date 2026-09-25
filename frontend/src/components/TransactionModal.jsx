@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { ApiError } from '../api/transactionsApi.js'
 import { formatAmount, validateChange } from '../utils/amount.js'
-import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../utils/dateTime.js'
 import Modal from './Modal.jsx'
 
 /**
  * Add/edit modal for a transaction. Pass `editing` to edit an existing transaction.
- * `onSubmit({ name, change, timestamp })` must return a promise and reject with an ApiError on failure.
+ * `onSubmit({ name, change, date })` must return a promise and reject with an ApiError on failure.
  * `onClose` is called both for Cancel and for the dialog's own close (e.g. the Escape key).
  */
 export default function TransactionModal({ open, editing, catalog, onSubmit, onClose }) {
@@ -27,7 +26,7 @@ function TransactionModalForm({ editing, catalog, onSubmit, onClose }) {
   const isEditing = Boolean(editing)
   const [name, setName] = useState(editing?.name ?? '')
   const [change, setChange] = useState(editing ? formatAmount(editing.change) : '')
-  const [timestamp, setTimestamp] = useState(editing ? toDateTimeLocalValue(editing.timestamp) : '')
+  const [date, setDate] = useState(editing?.date ?? '')
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -40,13 +39,13 @@ function TransactionModalForm({ editing, catalog, onSubmit, onClose }) {
     if (!name) errors.name = 'Choose an investment'
     const changeError = validateChange(change)
     if (changeError) errors.change = changeError
-    if (!timestamp) errors.timestamp = 'Timestamp is required'
+    if (!date) errors.date = 'Date is required'
     setFieldErrors(errors)
     if (Object.keys(errors).length > 0) return
 
     setSubmitting(true)
     try {
-      await onSubmit({ name, change: formatAmount(change), timestamp: fromDateTimeLocalValue(timestamp) })
+      await onSubmit({ name, change: formatAmount(change), date })
       onClose()
     } catch (error) {
       if (error instanceof ApiError && error.fieldErrors.length > 0) {
@@ -107,18 +106,18 @@ function TransactionModalForm({ editing, catalog, onSubmit, onClose }) {
       </div>
 
       <div className="field">
-        <label htmlFor="transaction-timestamp">Timestamp</label>
+        <label htmlFor="transaction-date">Date</label>
         <input
-          id="transaction-timestamp"
-          type="datetime-local"
-          value={timestamp}
-          onChange={(event) => setTimestamp(event.target.value)}
-          aria-invalid={Boolean(fieldErrors.timestamp)}
-          aria-describedby={fieldErrors.timestamp ? 'transaction-timestamp-error' : undefined}
+          id="transaction-date"
+          type="date"
+          value={date}
+          onChange={(event) => setDate(event.target.value)}
+          aria-invalid={Boolean(fieldErrors.date)}
+          aria-describedby={fieldErrors.date ? 'transaction-date-error' : undefined}
         />
-        {fieldErrors.timestamp && (
-          <p id="transaction-timestamp-error" className="field-error">
-            {fieldErrors.timestamp}
+        {fieldErrors.date && (
+          <p id="transaction-date-error" className="field-error">
+            {fieldErrors.date}
           </p>
         )}
       </div>

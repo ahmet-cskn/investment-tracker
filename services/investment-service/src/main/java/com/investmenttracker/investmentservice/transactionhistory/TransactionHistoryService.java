@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class TransactionHistoryService {
 
-	private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "timestamp");
+	// Several transactions can share a day, so name and id break the tie to keep the order stable
+	private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("date"), Sort.Order.asc("name"),
+			Sort.Order.asc("id"));
 
 	private final TransactionHistoryRepository transactionHistoryRepository;
 	private final InvestmentCatalogRepository investmentCatalogRepository;
@@ -30,7 +32,7 @@ public class TransactionHistoryService {
 	public TransactionResponse create(CreateTransactionRequest request) {
 		String investmentType = findInvestmentTypeOrThrow(request.name());
 		TransactionHistory entry = new TransactionHistory(request.name(), investmentType, request.change(),
-				request.timestamp());
+				request.date());
 		return TransactionResponse.from(transactionHistoryRepository.save(entry));
 	}
 
@@ -50,7 +52,7 @@ public class TransactionHistoryService {
 		entry.setName(request.name());
 		entry.setInvestmentType(investmentType);
 		entry.setChange(request.change());
-		entry.setTimestamp(request.timestamp());
+		entry.setDate(request.date());
 		return TransactionResponse.from(entry);
 	}
 

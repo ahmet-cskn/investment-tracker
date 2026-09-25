@@ -14,7 +14,7 @@ import com.investmenttracker.investmentservice.transactionhistory.dto.CreateTran
 import com.investmenttracker.investmentservice.transactionhistory.dto.TransactionResponse;
 import com.investmenttracker.investmentservice.transactionhistory.dto.UpdateTransactionRequest;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,15 +52,15 @@ class TransactionHistoryServiceTest {
 	void createLooksUpTheCatalogAndDerivesInvestmentType() {
 		when(transactionHistoryRepository.save(any(TransactionHistory.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
-		Instant timestamp = Instant.parse("2026-01-01T00:00:00Z");
+		LocalDate date = LocalDate.parse("2026-01-01");
 
 		TransactionResponse response = transactionHistoryService
-				.create(new CreateTransactionRequest("Gold", new BigDecimal("2.5"), timestamp));
+				.create(new CreateTransactionRequest("Gold", new BigDecimal("2.5"), date));
 
 		assertThat(response.name()).isEqualTo("Gold");
 		assertThat(response.investmentType()).isEqualTo("Precious Metal");
 		assertThat(response.change()).isEqualByComparingTo("2.5");
-		assertThat(response.timestamp()).isEqualTo(timestamp);
+		assertThat(response.date()).isEqualTo(date);
 	}
 
 	@Test
@@ -69,7 +69,7 @@ class TransactionHistoryServiceTest {
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		TransactionResponse response = transactionHistoryService
-				.create(new CreateTransactionRequest("Bitcoin", new BigDecimal("-1.5"), Instant.now()));
+				.create(new CreateTransactionRequest("Bitcoin", new BigDecimal("-1.5"), LocalDate.now()));
 
 		assertThat(response.change()).isEqualByComparingTo("-1.5");
 	}
@@ -79,16 +79,17 @@ class TransactionHistoryServiceTest {
 		when(investmentCatalogRepository.findById("Doge")).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> transactionHistoryService
-				.create(new CreateTransactionRequest("Doge", BigDecimal.ONE, Instant.now())))
+				.create(new CreateTransactionRequest("Doge", BigDecimal.ONE, LocalDate.now())))
 				.isInstanceOf(UnknownInvestmentNameException.class)
 				.hasMessageContaining("Doge");
 	}
 
 	@Test
-	void findAllSortsByTimestampNewestFirst() {
-		when(transactionHistoryRepository.findAll(Sort.by(Sort.Direction.DESC, "timestamp"))).thenReturn(List.of(
-				new TransactionHistory("Bitcoin", "Cryptocurrency", BigDecimal.ONE, Instant.parse("2026-01-02T00:00:00Z")),
-				new TransactionHistory("Gold", "Precious Metal", BigDecimal.ONE, Instant.parse("2026-01-01T00:00:00Z"))));
+	void findAllSortsByDateNewestFirstWithNameAndIdBreakingTies() {
+		when(transactionHistoryRepository.findAll(
+				Sort.by(Sort.Order.desc("date"), Sort.Order.asc("name"), Sort.Order.asc("id")))).thenReturn(List.of(
+				new TransactionHistory("Bitcoin", "Cryptocurrency", BigDecimal.ONE, LocalDate.parse("2026-01-02")),
+				new TransactionHistory("Gold", "Precious Metal", BigDecimal.ONE, LocalDate.parse("2026-01-01"))));
 
 		List<TransactionResponse> responses = transactionHistoryService.findAll();
 
@@ -99,7 +100,7 @@ class TransactionHistoryServiceTest {
 	void findByIdReturnsEntry() {
 		UUID id = UUID.randomUUID();
 		when(transactionHistoryRepository.findById(id))
-				.thenReturn(Optional.of(new TransactionHistory("Gold", "Precious Metal", BigDecimal.ONE, Instant.now())));
+				.thenReturn(Optional.of(new TransactionHistory("Gold", "Precious Metal", BigDecimal.ONE, LocalDate.now())));
 
 		assertThat(transactionHistoryService.findById(id).name()).isEqualTo("Gold");
 	}
@@ -118,17 +119,17 @@ class TransactionHistoryServiceTest {
 	void updateChangesEveryFieldAndRederivesType() {
 		UUID id = UUID.randomUUID();
 		TransactionHistory existing = new TransactionHistory("Gold", "Precious Metal", new BigDecimal("1"),
-				Instant.parse("2026-01-01T00:00:00Z"));
+				LocalDate.parse("2026-01-01"));
 		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.of(existing));
-		Instant newTimestamp = Instant.parse("2026-02-01T00:00:00Z");
+		LocalDate newDate = LocalDate.parse("2026-02-01");
 
 		TransactionResponse response = transactionHistoryService
-				.update(id, new UpdateTransactionRequest("Bitcoin", new BigDecimal("-3"), newTimestamp));
+				.update(id, new UpdateTransactionRequest("Bitcoin", new BigDecimal("-3"), newDate));
 
 		assertThat(response.name()).isEqualTo("Bitcoin");
 		assertThat(response.investmentType()).isEqualTo("Cryptocurrency");
 		assertThat(response.change()).isEqualByComparingTo("-3");
-		assertThat(response.timestamp()).isEqualTo(newTimestamp);
+		assertThat(response.date()).isEqualTo(newDate);
 	}
 
 	@Test
@@ -137,7 +138,7 @@ class TransactionHistoryServiceTest {
 		when(investmentCatalogRepository.findById("Doge")).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> transactionHistoryService
-				.update(id, new UpdateTransactionRequest("Doge", BigDecimal.ONE, Instant.now())))
+				.update(id, new UpdateTransactionRequest("Doge", BigDecimal.ONE, LocalDate.now())))
 				.isInstanceOf(UnknownInvestmentNameException.class);
 	}
 
@@ -147,14 +148,14 @@ class TransactionHistoryServiceTest {
 		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> transactionHistoryService
-				.update(id, new UpdateTransactionRequest("Gold", BigDecimal.ONE, Instant.now())))
+				.update(id, new UpdateTransactionRequest("Gold", BigDecimal.ONE, LocalDate.now())))
 				.isInstanceOf(TransactionNotFoundException.class);
 	}
 
 	@Test
 	void deleteRemovesExistingEntry() {
 		UUID id = UUID.randomUUID();
-		TransactionHistory existing = new TransactionHistory("Gold", "Precious Metal", BigDecimal.ONE, Instant.now());
+		TransactionHistory existing = new TransactionHistory("Gold", "Precious Metal", BigDecimal.ONE, LocalDate.now());
 		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.of(existing));
 
 		transactionHistoryService.delete(id);

@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-transaction-history-table.yaml
   - include:
       file: db/changelog/changes/004-create-investment-catalog-table.yaml
+  - include:
+      file: db/changelog/changes/005-change-transaction-timestamp-to-date.yaml

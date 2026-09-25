@@ -4,11 +4,11 @@ import { parseJsonKeepingDecimals, request } from './httpClient.js'
 /**
  * Client for the investment-service transactions REST API.
  *
- * @typedef {{ id: string, name: string, investmentType: string, change: string, timestamp: string }} Transaction
+ * @typedef {{ id: string, name: string, investmentType: string, change: string, date: string }} Transaction
  *   `change` is a decimal string (e.g. "-1.5"), never a number, to avoid losing precision; it may be
- *   negative or zero. `timestamp` is an ISO-8601 UTC string. `investmentType` is derived server-side
+ *   negative or zero. `date` is a plain "YYYY-MM-DD" string. `investmentType` is derived server-side
  *   from `name` and is not settable here.
- * @typedef {{ name: string, change: string, timestamp: string }} TransactionInput
+ * @typedef {{ name: string, change: string, date: string }} TransactionInput
  */
 
 export { ApiError } from './httpClient.js'
@@ -16,11 +16,11 @@ export { ApiError } from './httpClient.js'
 const BASE_URL = '/api/transactions'
 const DECIMAL_FIELDS = ['change']
 
-function serializeTransaction({ name, change, timestamp }) {
+function serializeTransaction({ name, change, date }) {
   if (!SIGNED_PLAIN_DECIMAL.test(change)) {
     throw new TypeError(`Invalid change: ${change}`)
   }
-  return `{"name":${JSON.stringify(name)},"change":${change},"timestamp":${JSON.stringify(timestamp)}}`
+  return `{"name":${JSON.stringify(name)},"change":${change},"date":${JSON.stringify(date)}}`
 }
 
 async function requestJson(path, options) {

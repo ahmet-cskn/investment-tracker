@@ -10,7 +10,7 @@ import com.investmenttracker.investmentservice.investment.InvestmentRepository;
 import com.investmenttracker.investmentservice.transactionhistory.TransactionHistory;
 import com.investmenttracker.investmentservice.transactionhistory.TransactionHistoryRepository;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -135,7 +135,7 @@ class PortfolioApiIT {
 
 	private void transaction(String name, String change) {
 		transactionHistoryRepository
-				.save(new TransactionHistory(name, "any", new BigDecimal(change), Instant.parse("2026-01-01T00:00:00Z")));
+				.save(new TransactionHistory(name, "any", new BigDecimal(change), LocalDate.parse("2026-01-01")));
 	}
 
 }

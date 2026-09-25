@@ -9,16 +9,17 @@ import { fakeCatalogHandler } from './test/fakeCatalog.js'
 import { fakePortfolioHandler } from './test/fakePortfolio.js'
 import { createFakeTransactionsBackend } from './test/fakeTransactionsBackend.js'
 import { server } from './test/server.js'
+import { formatDate } from './utils/date.js'
 
 // Initial investments (the rows behind /api/investments)
 const INITIAL_GOLD = { id: 'id-a', name: 'Gold', amount: '2' }
 const INITIAL_ETH = { id: 'id-b', name: 'Ethereum', amount: '3.5' }
 
 // Transactions
-const BTC_TX = { id: 'tx-a', name: 'Bitcoin', change: '-1.5', timestamp: '2026-01-15T10:00:00Z' }
-const GOLD_TX = { id: 'tx-b', name: 'Gold', change: '2.5', timestamp: '2026-02-15T10:00:00Z' }
-const GOLD_MINUS_ONE = { id: 'tx-c', name: 'Gold', change: '-1', timestamp: '2026-03-01T10:00:00Z' }
-const GOLD_PLUS_FIVE = { id: 'tx-d', name: 'Gold', change: '5', timestamp: '2026-03-02T10:00:00Z' }
+const BTC_TX = { id: 'tx-a', name: 'Bitcoin', change: '-1.5', date: '2026-01-15' }
+const GOLD_TX = { id: 'tx-b', name: 'Gold', change: '2.5', date: '2026-02-15' }
+const GOLD_MINUS_ONE = { id: 'tx-c', name: 'Gold', change: '-1', date: '2026-03-01' }
+const GOLD_PLUS_FIVE = { id: 'tx-d', name: 'Gold', change: '5', date: '2026-03-02' }
 
 // App always renders the portfolio, the transactions and the catalog-backed "Add Transaction" button, so
 // every render needs all of them mocked. initial/initialTransactions seed the fake backends and the fake
@@ -56,11 +57,11 @@ async function fillInitialInvestmentForm(user, { name, amount }) {
   if (amount !== undefined) await user.type(screen.getByLabelText('Amount'), amount)
 }
 
-async function fillTransactionModal(user, { name, change, timestamp }) {
+async function fillTransactionModal(user, { name, change, date }) {
   if (name !== undefined) await user.selectOptions(screen.getByLabelText('Investment'), name)
   if (change !== undefined) await user.type(screen.getByLabelText('Change'), change)
-  if (timestamp !== undefined) {
-    fireEvent.change(screen.getByLabelText('Timestamp'), { target: { value: timestamp } })
+  if (date !== undefined) {
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } })
   }
 }
 
@@ -109,7 +110,7 @@ describe('the investments table (the portfolio)', () => {
   })
 
   it('keeps a total of zero', async () => {
-    renderApp([INITIAL_GOLD], [], [{ id: 'tx-z', name: 'Gold', change: '-2', timestamp: '2026-03-01T10:00:00Z' }])
+    renderApp([INITIAL_GOLD], [], [{ id: 'tx-z', name: 'Gold', change: '-2', date: '2026-03-01' }])
 
     const rows = await within(investmentsSection()).findAllByRole('row')
 
@@ -380,7 +381,7 @@ describe('transaction listing', () => {
   })
 
   it('lists transactions newest first, with type derived from the catalog', async () => {
-    // the fake backend, like the real one, sorts by timestamp; GOLD_TX is later than BTC_TX
+    // the fake backend, like the real one, sorts by date; GOLD_TX is later than BTC_TX
     renderApp([], [], [BTC_TX, GOLD_TX])
 
     const rows = await within(transactionsSection()).findAllByRole('row')
@@ -392,6 +393,29 @@ describe('transaction listing', () => {
     expect(within(rows[2]).getByText('Bitcoin')).toBeInTheDocument()
     expect(within(rows[2]).getByText('-1.5')).toBeInTheDocument()
   })
+
+  it('shows each transaction\'s date, without a time', async () => {
+    renderApp([], [], [BTC_TX])
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[1]).getByText(formatDate('2026-01-15'))).toBeInTheDocument()
+  })
+
+  it('orders transactions on the same day by name', async () => {
+    const sameDay = '2026-04-01'
+    renderApp([], [], [
+      { id: 'tx-1', name: 'Silver', change: '1', date: sameDay },
+      { id: 'tx-2', name: 'Bitcoin', change: '2', date: sameDay },
+      { id: 'tx-3', name: 'Gold', change: '3', date: sameDay },
+    ])
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[1]).getByText('Bitcoin')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('Gold')).toBeInTheDocument()
+    expect(within(rows[3]).getByText('Silver')).toBeInTheDocument()
+  })
 })
 
 describe('adding a transaction', () => {
@@ -402,7 +426,7 @@ describe('adding a transaction', () => {
     await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
     expect(screen.getByRole('heading', { name: 'Add transaction' })).toBeInTheDocument()
 
-    await fillTransactionModal(user, { name: 'Bitcoin', change: '-1.5', timestamp: '2026-01-15T10:00' })
+    await fillTransactionModal(user, { name: 'Bitcoin', change: '-1.5', date: '2026-01-15' })
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await within(transactionsSection()).findByText('Bitcoin')).toBeInTheDocument()
@@ -430,7 +454,7 @@ describe('adding a transaction', () => {
     )
 
     await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
-    await fillTransactionModal(user, { name: 'Bitcoin', change: '1', timestamp: '2026-01-15T10:00' })
+    await fillTransactionModal(user, { name: 'Bitcoin', change: '1', date: '2026-01-15' })
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await screen.findByText('Unknown investment name: Bitcoin')).toBeInTheDocument()
@@ -457,7 +481,7 @@ describe('editing a transaction', () => {
     expect(screen.getByLabelText('Investment')).toHaveValue('Bitcoin')
     expect(screen.getByLabelText('Change')).toHaveValue('-1.5')
 
-    // Change the investment and the amount; leave the prefilled timestamp as-is
+    // Change the investment and the amount; leave the prefilled date as-is
     await user.selectOptions(screen.getByLabelText('Investment'), 'Gold')
     await user.clear(screen.getByLabelText('Change'))
     await user.type(screen.getByLabelText('Change'), '3')
@@ -507,7 +531,7 @@ describe('the investments table follows the transactions', () => {
     await within(investmentsSection()).findByText('2')
 
     await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
-    await fillTransactionModal(user, { name: 'Gold', change: '5', timestamp: '2026-03-01T10:00' })
+    await fillTransactionModal(user, { name: 'Gold', change: '5', date: '2026-03-01' })
     await user.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(await within(investmentsSection()).findByText('7')).toBeInTheDocument()
