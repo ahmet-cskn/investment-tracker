@@ -64,6 +64,42 @@ h2 {
   margin-bottom: 20px;
 }
 
+.net-worth {
+  background: linear-gradient(135deg, var(--highlight), var(--surface));
+  border-left: 4px solid var(--accent);
+}
+
+.net-worth p {
+  margin: 0;
+}
+
+.net-worth-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.net-worth-value {
+  margin-top: 4px;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.net-worth-value.negative {
+  color: var(--danger);
+}
+
+.net-worth-note {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .form {
   display: flex;
   flex-direction: column;

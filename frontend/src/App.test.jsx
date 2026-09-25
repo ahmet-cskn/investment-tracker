@@ -77,6 +77,59 @@ function transactionsSection() {
   return screen.getByRole('heading', { name: 'Your transactions' }).closest('section')
 }
 
+function netWorth() {
+  return screen.getByRole('region', { name: 'Net worth' })
+}
+
+describe('the net worth', () => {
+  it('shows the sum of the investments table\'s worth column', async () => {
+    // Gold (2 + 2.5) at 100 each, Ethereum 3.5 at 3,000 each, Bitcoin -1.5 at 50,000 each
+    renderApp([INITIAL_GOLD, INITIAL_ETH], [], [BTC_TX, GOLD_TX])
+
+    await within(investmentsSection()).findAllByRole('row')
+
+    expect(within(netWorth()).getByText(formatUsd('-64050'))).toBeInTheDocument()
+    expect(within(netWorth()).queryByText(/without a price/)).not.toBeInTheDocument()
+  })
+
+  it('is zero when there is nothing', async () => {
+    renderApp()
+
+    await screen.findByText(/No investments yet/)
+
+    expect(within(netWorth()).getByText(formatUsd('0'))).toBeInTheDocument()
+  })
+
+  it('leaves out investments without a price and says so', async () => {
+    renderApp([INITIAL_ETH], [], [BTC_TX, GOLD_TX], { Gold: null })
+
+    await within(investmentsSection()).findAllByRole('row')
+
+    // Ethereum 10,500 and Bitcoin -75,000; Gold has no price
+    expect(within(netWorth()).getByText(formatUsd('-64500'))).toBeInTheDocument()
+    expect(within(netWorth()).getByText('1 investment without a price is not included')).toBeInTheDocument()
+  })
+
+  it('is not shown when the portfolio could not be loaded', async () => {
+    renderApp([], [http.get('/api/portfolio', () => HttpResponse.error())])
+
+    await screen.findByText(/Could not reach the server/)
+
+    expect(screen.queryByRole('region', { name: 'Net worth' })).not.toBeInTheDocument()
+  })
+
+  it('updates when a transaction changes the portfolio', async () => {
+    const { user } = renderApp([INITIAL_GOLD])
+    await screen.findByText(formatUsd('200'), { selector: '.net-worth-value' })
+
+    await user.click(await screen.findByRole('button', { name: 'Add Transaction' }))
+    await fillTransactionModal(user, { name: 'Gold', change: '3', date: '2026-03-01' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await screen.findByText(formatUsd('500'), { selector: '.net-worth-value' })).toBeInTheDocument()
+  })
+})
+
 describe('the investments table (the portfolio)', () => {
   it('shows an empty state when there is nothing', async () => {
     renderApp()

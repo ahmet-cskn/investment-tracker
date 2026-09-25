@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ErrorBanner from './components/ErrorBanner.jsx'
 import InitialInvestmentsModal from './components/InitialInvestmentsModal.jsx'
+import NetWorth from './components/NetWorth.jsx'
 import PortfolioTable from './components/PortfolioTable.jsx'
 import TransactionModal from './components/TransactionModal.jsx'
 import TransactionTable from './components/TransactionTable.jsx'
@@ -47,6 +48,9 @@ export default function App() {
   return (
     <main>
       <h1>Investment Tracker</h1>
+
+      {/* Only once the portfolio has loaded; if it failed, the investments card below shows why */}
+      {portfolio.isSuccess && <NetWorth entries={portfolio.data} />}
 
       <section className="card">
         <h2>Your investments</h2>
