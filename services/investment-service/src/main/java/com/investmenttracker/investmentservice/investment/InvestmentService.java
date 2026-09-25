@@ -2,11 +2,11 @@ package com.investmenttracker.investmentservice.investment;
 
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
+import com.investmenttracker.investmentservice.catalog.PlaceholderWorth;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
 import com.investmenttracker.investmentservice.investment.dto.CreateInvestmentRequest;
 import com.investmenttracker.investmentservice.investment.dto.InvestmentResponse;
 import com.investmenttracker.investmentservice.investment.dto.UpdateInvestmentRequest;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -15,10 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class InvestmentService {
-
-	// worth is not yet priced by a real market-data source; every investment is placeholder-valued at 1
-	// until that is built, regardless of what a client sends
-	private static final BigDecimal PLACEHOLDER_WORTH = BigDecimal.ONE;
 
 	private final InvestmentRepository investmentRepository;
 	private final InvestmentCatalogRepository investmentCatalogRepository;
@@ -67,7 +63,7 @@ public class InvestmentService {
 	// client cannot set them to something inconsistent with the investment's name
 	private void applyCatalogEntry(Investment investment, InvestmentCatalogEntry catalogEntry) {
 		investment.setInvestmentType(catalogEntry.getInvestmentType());
-		investment.setWorth(PLACEHOLDER_WORTH);
+		investment.setWorth(PlaceholderWorth.VALUE);
 	}
 
 	private Investment getOrThrow(UUID id) {

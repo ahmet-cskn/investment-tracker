@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAmount, validateAmount, validateChange, validateName } from './amount.js'
+import { formatAmount, validateAmount, validateChange } from './amount.js'
 
 describe('formatAmount', () => {
   it.each([
@@ -77,17 +77,5 @@ describe('validateChange', () => {
   it('rejects more than 20 integer digits, including when negative', () => {
     expect(validateChange('123456789012345678901')).toBe('Change is too large')
     expect(validateChange('-123456789012345678901')).toBe('Change is too large')
-  })
-})
-
-describe('validateName', () => {
-  it('requires a non-blank name', () => {
-    expect(validateName('   ')).toBe('Name is required')
-    expect(validateName('Gold')).toBeNull()
-  })
-
-  it('limits the length to 255 characters', () => {
-    expect(validateName('a'.repeat(256))).toBe('Name must be at most 255 characters')
-    expect(validateName('a'.repeat(255))).toBeNull()
   })
 })

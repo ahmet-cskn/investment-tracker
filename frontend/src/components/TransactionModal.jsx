@@ -1,52 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { ApiError } from '../api/transactionsApi.js'
 import { formatAmount, validateChange } from '../utils/amount.js'
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '../utils/dateTime.js'
+import Modal from './Modal.jsx'
 
 /**
  * Add/edit modal for a transaction. Pass `editing` to edit an existing transaction.
  * `onSubmit({ name, change, timestamp })` must return a promise and reject with an ApiError on failure.
  * `onClose` is called both for Cancel and for the dialog's own close (e.g. the Escape key).
- *
- * The `<dialog>` element itself stays mounted across opens, so its ref and the native show/close API
- * keep working; only the form inside is remounted (via `key`) each time it opens, so its fields reset
- * without an effect that would set state on every render.
  */
 export default function TransactionModal({ open, editing, catalog, onSubmit, onClose }) {
-  const dialogRef = useRef(null)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    // jsdom (used by the component tests) has no showModal()/close(), only the plain `open` attribute;
-    // real browsers get the full modal behaviour (focus trap, backdrop, Escape-to-close), jsdom gets a
-    // plain toggle, which is enough to render and interact with the form.
-    if (open && !dialog.open) {
-      if (typeof dialog.showModal === 'function') dialog.showModal()
-      else dialog.setAttribute('open', '')
-    } else if (!open && dialog.open) {
-      if (typeof dialog.close === 'function') dialog.close()
-      else dialog.removeAttribute('open')
-    }
-  }, [open])
-
-  // Only fires in real browsers (the Escape key, or a real dialog.close()); onClose may then be called
-  // a second time redundantly (the parent already set open=false), which is harmless
-  useEffect(() => {
-    const dialog = dialogRef.current
-    dialog.addEventListener('close', onClose)
-    return () => dialog.removeEventListener('close', onClose)
-  }, [onClose])
-
   return (
-    <dialog ref={dialogRef} className="modal">
+    <Modal open={open} onClose={onClose}>
       <TransactionModalForm
-        key={open ? (editing?.id ?? 'new') : 'closed'}
+        key={editing?.id ?? 'new'}
         editing={editing}
         catalog={catalog}
         onSubmit={onSubmit}
         onClose={onClose}
       />
-    </dialog>
+    </Modal>
   )
 }
 

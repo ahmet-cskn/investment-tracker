@@ -5,6 +5,7 @@ import {
   listTransactions,
   updateTransaction,
 } from '../api/transactionsApi.js'
+import { PORTFOLIO_KEY } from './usePortfolio.js'
 
 const TRANSACTIONS_KEY = ['transactions']
 
@@ -13,11 +14,16 @@ export function useTransactions() {
   return useQuery({ queryKey: TRANSACTIONS_KEY, queryFn: listTransactions })
 }
 
+// The portfolio is the initial investments plus the sum of the transactions, so any change here refreshes it too
 function useInvalidatingMutation(mutationFn) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY }),
+        queryClient.invalidateQueries({ queryKey: PORTFOLIO_KEY }),
+      ]),
   })
 }
 

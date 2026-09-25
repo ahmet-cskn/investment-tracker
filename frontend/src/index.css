@@ -211,18 +211,18 @@ td.actions {
   color: var(--muted);
 }
 
-.transaction-actions {
+.card-actions {
   margin-top: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.transaction-actions .empty {
+.card-actions .empty {
   margin: 0;
 }
 
-.transaction-actions .banner {
+.card-actions .banner {
   flex: 1;
   margin-bottom: 0;
 }
@@ -240,10 +240,19 @@ td.actions {
   background: rgb(0 0 0 / 50%);
 }
 
-.modal form {
+.modal.wide {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.modal form,
+.modal .modal-body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.modal .banner {
+  margin-bottom: 0;
 }
 
 .modal h2 {

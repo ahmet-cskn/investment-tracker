@@ -1,16 +1,11 @@
 import { useState } from 'react'
 import ErrorBanner from './components/ErrorBanner.jsx'
-import InvestmentForm from './components/InvestmentForm.jsx'
-import InvestmentTable from './components/InvestmentTable.jsx'
+import InitialInvestmentsModal from './components/InitialInvestmentsModal.jsx'
+import PortfolioTable from './components/PortfolioTable.jsx'
 import TransactionModal from './components/TransactionModal.jsx'
 import TransactionTable from './components/TransactionTable.jsx'
 import { useCatalog } from './hooks/useCatalog.js'
-import {
-  useCreateInvestment,
-  useDeleteInvestment,
-  useInvestments,
-  useUpdateInvestment,
-} from './hooks/useInvestments.js'
+import { usePortfolio } from './hooks/usePortfolio.js'
 import {
   useCreateTransaction,
   useDeleteTransaction,
@@ -19,11 +14,9 @@ import {
 } from './hooks/useTransactions.js'
 
 export default function App() {
-  const investments = useInvestments()
-  const createInvestment = useCreateInvestment()
-  const updateInvestment = useUpdateInvestment()
-  const deleteInvestment = useDeleteInvestment()
-  const [editingInvestment, setEditingInvestment] = useState(null)
+  // The investments table is the portfolio: initial investments plus the sum of the transactions
+  const portfolio = usePortfolio()
+  const [initialInvestmentsOpen, setInitialInvestmentsOpen] = useState(false)
 
   const transactions = useTransactions()
   const catalog = useCatalog()
@@ -32,20 +25,6 @@ export default function App() {
   const deleteTransaction = useDeleteTransaction()
   const [transactionModalOpen, setTransactionModalOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState(null)
-
-  async function handleInvestmentSubmit(values) {
-    if (editingInvestment) {
-      await updateInvestment.mutateAsync({ id: editingInvestment.id, ...values })
-      setEditingInvestment(null)
-    } else {
-      await createInvestment.mutateAsync(values)
-    }
-  }
-
-  async function handleInvestmentDelete(id) {
-    await deleteInvestment.mutateAsync(id)
-    if (editingInvestment?.id === id) setEditingInvestment(null)
-  }
 
   function openAddTransaction() {
     setEditingTransaction(null)
@@ -69,31 +48,20 @@ export default function App() {
     <main>
       <h1>Investment Tracker</h1>
 
-      <InvestmentForm
-        key={editingInvestment?.id ?? 'new'}
-        editing={editingInvestment}
-        onSubmit={handleInvestmentSubmit}
-        onCancel={() => setEditingInvestment(null)}
-      />
-
-      {deleteInvestment.isError && (
-        <ErrorBanner message={deleteInvestment.error.message} onDismiss={deleteInvestment.reset} />
-      )}
-
       <section className="card">
         <h2>Your investments</h2>
-        {investments.isPending && <p className="empty">Loading…</p>}
-        {investments.isError && (
-          <ErrorBanner message={investments.error.message} onRetry={() => investments.refetch()} />
+        {portfolio.isPending && <p className="empty">Loading…</p>}
+        {portfolio.isError && (
+          <ErrorBanner message={portfolio.error.message} onRetry={() => portfolio.refetch()} />
         )}
-        {investments.isSuccess && (
-          <InvestmentTable
-            investments={investments.data}
-            editingId={editingInvestment?.id}
-            onEdit={setEditingInvestment}
-            onDelete={handleInvestmentDelete}
-          />
-        )}
+        {portfolio.isSuccess && <PortfolioTable entries={portfolio.data} />}
+
+        <div className="card-actions">
+          {/* The modal's dropdown needs the catalog; if it failed to load, the transactions section below shows why */}
+          <button type="button" disabled={!catalog.isSuccess} onClick={() => setInitialInvestmentsOpen(true)}>
+            Edit Initial Investments
+          </button>
+        </div>
       </section>
 
       {deleteTransaction.isError && (
@@ -114,7 +82,7 @@ export default function App() {
           />
         )}
 
-        <div className="transaction-actions">
+        <div className="card-actions">
           {catalog.isPending && <p className="empty">Loading investments…</p>}
           {catalog.isError && (
             <ErrorBanner message={catalog.error.message} onRetry={() => catalog.refetch()} />
@@ -126,6 +94,12 @@ export default function App() {
           )}
         </div>
       </section>
+
+      <InitialInvestmentsModal
+        open={initialInvestmentsOpen}
+        catalog={catalog.data ?? []}
+        onClose={() => setInitialInvestmentsOpen(false)}
+      />
 
       <TransactionModal
         open={transactionModalOpen}

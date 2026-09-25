@@ -61,11 +61,3 @@ export function validateChange(input) {
   if (fraction.length > MAX_FRACTION_DIGITS) return `Use at most ${MAX_FRACTION_DIGITS} decimal places`
   return null
 }
-
-/** Returns an error message for an invalid name input, or null if it is valid. */
-export function validateName(input) {
-  const value = input.trim()
-  if (!value) return 'Name is required'
-  if (value.length > 255) return 'Name must be at most 255 characters'
-  return null
-}

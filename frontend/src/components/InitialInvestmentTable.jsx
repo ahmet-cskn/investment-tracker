@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatAmount } from '../utils/amount.js'
 
 /** `onDelete(id)` must return a promise; failures are reported by the parent, so they are ignored here. */
-export default function InvestmentTable({ investments, editingId, onEdit, onDelete }) {
+export default function InitialInvestmentTable({ investments, onEdit, onDelete }) {
   const [confirmingId, setConfirmingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
 
@@ -19,7 +19,7 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
   }
 
   if (investments.length === 0) {
-    return <p className="empty">No investments yet. Add your first one above.</p>
+    return <p className="empty">No initial investments yet. Add one below.</p>
   }
 
   return (
@@ -29,7 +29,6 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
           <th>Name</th>
           <th>Type</th>
           <th className="numeric">Amount</th>
-          <th className="numeric">Worth</th>
           <th>
             <span className="visually-hidden">Actions</span>
           </th>
@@ -37,15 +36,14 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
       </thead>
       <tbody>
         {investments.map((investment) => {
-          const { id, name, amount, investmentType, worth } = investment
+          const { id, name, investmentType, amount } = investment
           const isConfirming = confirmingId === id
           const isDeleting = deletingId === id
           return (
-            <tr key={id} className={editingId === id ? 'editing' : undefined}>
+            <tr key={id}>
               <td>{name}</td>
               <td>{investmentType ?? '—'}</td>
               <td className="numeric">{formatAmount(amount)}</td>
-              <td className="numeric">{worth != null ? formatAmount(worth) : '—'}</td>
               <td className="actions">
                 {isConfirming ? (
                   <>
@@ -53,7 +51,7 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
                     <button
                       type="button"
                       className="danger"
-                      aria-label={`Confirm delete ${name}`}
+                      aria-label={`Confirm delete initial investment ${name}`}
                       disabled={isDeleting}
                       onClick={() => confirmDelete(id)}
                     >
@@ -61,7 +59,7 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
                     </button>
                     <button
                       type="button"
-                      aria-label={`Cancel delete ${name}`}
+                      aria-label={`Cancel delete initial investment ${name}`}
                       disabled={isDeleting}
                       onClick={() => setConfirmingId(null)}
                     >
@@ -70,10 +68,18 @@ export default function InvestmentTable({ investments, editingId, onEdit, onDele
                   </>
                 ) : (
                   <>
-                    <button type="button" aria-label={`Edit ${name}`} onClick={() => onEdit(investment)}>
+                    <button
+                      type="button"
+                      aria-label={`Edit initial investment ${name}`}
+                      onClick={() => onEdit(investment)}
+                    >
                       Edit
                     </button>
-                    <button type="button" aria-label={`Delete ${name}`} onClick={() => setConfirmingId(id)}>
+                    <button
+                      type="button"
+                      aria-label={`Delete initial investment ${name}`}
+                      onClick={() => setConfirmingId(id)}
+                    >
                       Delete
                     </button>
                   </>
