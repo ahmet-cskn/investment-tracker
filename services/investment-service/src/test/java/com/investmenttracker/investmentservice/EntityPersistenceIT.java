@@ -69,6 +69,16 @@ class EntityPersistenceIT {
 		assertThat(reloaded.getDate()).isEqualTo(date);
 	}
 
+	@Test
+	void transactionHistoryKeepsItsWorthAndDoesNotRequireOne() {
+		TransactionHistory withWorth = new TransactionHistory("Gold", "METAL", new BigDecimal("2"), LocalDate.parse("2026-09-20"));
+		withWorth.setWorth(new BigDecimal("273.406470123456789012"));
+		TransactionHistory withoutWorth = new TransactionHistory("Silver", "METAL", new BigDecimal("2"), LocalDate.parse("2026-09-20"));
+
+		assertThat(saveAndReload(withWorth).getWorth()).isEqualByComparingTo("273.406470123456789012");
+		assertThat(saveAndReload(withoutWorth).getWorth()).isNull();
+	}
+
 	// Nulling one field at a time (each invocation gets its own rolled-back transaction, as a failed flush poisons it)
 	@ParameterizedTest
 	@ValueSource(strings = { "name", "investment_type", "change", "date" })

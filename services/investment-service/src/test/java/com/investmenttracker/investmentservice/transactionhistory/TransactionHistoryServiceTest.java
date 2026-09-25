@@ -3,6 +3,7 @@ package com.investmenttracker.investmentservice.transactionhistory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,6 +12,7 @@ import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
+import com.investmenttracker.investmentservice.pricing.PriceService;
 import com.investmenttracker.investmentservice.transactionhistory.dto.CreateTransactionRequest;
 import com.investmenttracker.investmentservice.transactionhistory.dto.TransactionResponse;
 import com.investmenttracker.investmentservice.transactionhistory.dto.UpdateTransactionRequest;
@@ -35,6 +37,9 @@ class TransactionHistoryServiceTest {
 
 	@Mock
 	private InvestmentCatalogRepository investmentCatalogRepository;
+
+	@Mock
+	private PriceService priceService;
 
 	@InjectMocks
 	private TransactionHistoryService transactionHistoryService;
@@ -171,6 +176,175 @@ class TransactionHistoryServiceTest {
 
 		assertThatThrownBy(() -> transactionHistoryService.delete(id)).isInstanceOf(TransactionNotFoundException.class);
 		verify(transactionHistoryRepository, never()).delete(any());
+	}
+
+	private void priceOf(String name, LocalDate date, String price) {
+		when(priceService.findPrice(name, date)).thenReturn(Optional.of(new BigDecimal(price)));
+	}
+
+	private void saveReturnsWhatItIsGiven() {
+		when(transactionHistoryRepository.save(any(TransactionHistory.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+	}
+
+	@Test
+	void createStoresTheDaysPriceTimesTheChangeAsWorth() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		priceOf("Gold", date, "100.5");
+		saveReturnsWhatItIsGiven();
+
+		TransactionResponse response = transactionHistoryService
+				.create(new CreateTransactionRequest("Gold", new BigDecimal("2"), date));
+
+		assertThat(response.worth()).isEqualByComparingTo("201");
+	}
+
+	@Test
+	void aDecreaseIsWorthANegativeAmount() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		priceOf("Bitcoin", date, "50000");
+		saveReturnsWhatItIsGiven();
+
+		TransactionResponse response = transactionHistoryService
+				.create(new CreateTransactionRequest("Bitcoin", new BigDecimal("-1.5"), date));
+
+		assertThat(response.worth()).isEqualByComparingTo("-75000");
+	}
+
+	@Test
+	void aChangeOfZeroIsWorthZero() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		priceOf("Gold", date, "100");
+		saveReturnsWhatItIsGiven();
+
+		TransactionResponse response = transactionHistoryService
+				.create(new CreateTransactionRequest("Gold", BigDecimal.ZERO, date));
+
+		assertThat(response.worth()).isEqualByComparingTo("0");
+	}
+
+	@Test
+	void theWorthIsRoundedToTheColumnsEighteenDecimals() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		// 18 decimals times 18 decimals is 36 decimals, which the NUMERIC(38,18) column would round anyway
+		priceOf("Gold", date, "0.333333333333333333");
+		saveReturnsWhatItIsGiven();
+
+		TransactionResponse response = transactionHistoryService
+				.create(new CreateTransactionRequest("Gold", new BigDecimal("0.333333333333333333"), date));
+
+		assertThat(response.worth().scale()).isEqualTo(18);
+		assertThat(response.worth()).isEqualByComparingTo("0.111111111111111111");
+	}
+
+	@Test
+	void withoutAPriceTheTransactionIsStillSavedWithNoWorth() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		when(priceService.findPrice("Gold", date)).thenReturn(Optional.empty());
+		saveReturnsWhatItIsGiven();
+
+		TransactionResponse response = transactionHistoryService
+				.create(new CreateTransactionRequest("Gold", new BigDecimal("2"), date));
+
+		assertThat(response.worth()).isNull();
+		assertThat(response.name()).isEqualTo("Gold");
+		verify(transactionHistoryRepository).save(any(TransactionHistory.class));
+	}
+
+	@Test
+	void aWorthTooLargeForTheColumnIsLeftEmptyInsteadOfFailingTheSave() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		priceOf("Gold", date, "100");
+		saveReturnsWhatItIsGiven();
+
+		// 20 digits times 100 is 22 digits, but only 20 fit before the decimal point
+		TransactionResponse response = transactionHistoryService.create(
+				new CreateTransactionRequest("Gold", new BigDecimal("99999999999999999999"), date));
+
+		assertThat(response.worth()).isNull();
+	}
+
+	@Test
+	void theLargestWorthThatFitsIsKept() {
+		LocalDate date = LocalDate.parse("2026-01-15");
+		priceOf("Gold", date, "1");
+		saveReturnsWhatItIsGiven();
+
+		TransactionResponse response = transactionHistoryService.create(
+				new CreateTransactionRequest("Gold", new BigDecimal("99999999999999999999"), date));
+
+		assertThat(response.worth()).isEqualByComparingTo("99999999999999999999");
+	}
+
+	@Test
+	void noPriceIsLookedUpForAnUnknownName() {
+		when(investmentCatalogRepository.findById("Doge")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> transactionHistoryService
+				.create(new CreateTransactionRequest("Doge", BigDecimal.ONE, LocalDate.now())))
+				.isInstanceOf(UnknownInvestmentNameException.class);
+
+		verify(priceService, never()).findPrice(anyString(), any());
+	}
+
+	@Test
+	void updateWorksTheWorthOutAgainFromTheNewNameChangeAndDate() {
+		UUID id = UUID.randomUUID();
+		TransactionHistory existing = new TransactionHistory("Gold", "Precious Metal", new BigDecimal("1"),
+				LocalDate.parse("2026-01-01"));
+		existing.setWorth(new BigDecimal("100"));
+		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.of(existing));
+		LocalDate newDate = LocalDate.parse("2026-02-01");
+		priceOf("Bitcoin", newDate, "50000");
+
+		TransactionResponse response = transactionHistoryService
+				.update(id, new UpdateTransactionRequest("Bitcoin", new BigDecimal("-3"), newDate));
+
+		assertThat(response.worth()).isEqualByComparingTo("-150000");
+		assertThat(existing.getWorth()).isEqualByComparingTo("-150000");
+		verify(transactionHistoryRepository).save(existing);
+	}
+
+	@Test
+	void updateClearsAnOldWorthWhenThereIsNoPriceForTheNewDay() {
+		UUID id = UUID.randomUUID();
+		TransactionHistory existing = new TransactionHistory("Gold", "Precious Metal", new BigDecimal("1"),
+				LocalDate.parse("2026-01-01"));
+		existing.setWorth(new BigDecimal("100"));
+		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.of(existing));
+		when(priceService.findPrice(anyString(), any())).thenReturn(Optional.empty());
+
+		TransactionResponse response = transactionHistoryService
+				.update(id, new UpdateTransactionRequest("Gold", new BigDecimal("1"), LocalDate.parse("1990-01-01")));
+
+		assertThat(response.worth()).isNull();
+		assertThat(existing.getWorth()).isNull();
+	}
+
+	@Test
+	void updateFillsInAWorthThatWasMissingBefore() {
+		UUID id = UUID.randomUUID();
+		LocalDate date = LocalDate.parse("2026-01-01");
+		TransactionHistory existing = new TransactionHistory("Gold", "Precious Metal", new BigDecimal("2"), date);
+		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.of(existing));
+		priceOf("Gold", date, "100");
+
+		TransactionResponse response = transactionHistoryService
+				.update(id, new UpdateTransactionRequest("Gold", new BigDecimal("2"), date));
+
+		assertThat(response.worth()).isEqualByComparingTo("200");
+	}
+
+	@Test
+	void noPriceIsLookedUpForATransactionThatDoesNotExist() {
+		UUID id = UUID.randomUUID();
+		when(transactionHistoryRepository.findById(id)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> transactionHistoryService
+				.update(id, new UpdateTransactionRequest("Gold", BigDecimal.ONE, LocalDate.now())))
+				.isInstanceOf(TransactionNotFoundException.class);
+
+		verify(priceService, never()).findPrice(anyString(), any());
 	}
 
 }

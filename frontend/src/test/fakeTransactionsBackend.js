@@ -1,17 +1,24 @@
 import { http, HttpResponse } from 'msw'
 import { catalogTypeByName } from './fakeCatalog.js'
 
+// A price per unit for each investment, so the fake can work a worth out like the real backend does
+// (price times change). Tests override entries through `prices`; null means "no price could be obtained".
+const DEFAULT_PRICES = { Bitcoin: 50000, Ethereum: 3000, Gold: 100, 'S&P500': 500, Silver: 2 }
+
 /**
  * In-memory stand-in for the transaction-history REST API. Like the real backend it derives
- * investmentType from the catalog and returns transactions newest first.
+ * investmentType from the catalog and worth from a price, and returns transactions newest first.
  */
-export function createFakeTransactionsBackend(initial = []) {
+export function createFakeTransactionsBackend(initial = [], { prices = {} } = {}) {
+  const priceOf = (name) => ({ ...DEFAULT_PRICES, ...prices })[name] ?? null
   const rows = new Map(initial.map((row) => [row.id, { ...row }]))
   let nextId = initial.length + 1
 
   const json = (row) => {
     const investmentType = catalogTypeByName[row.name] ?? null
-    return `{"id":${JSON.stringify(row.id)},"name":${JSON.stringify(row.name)},"investmentType":${JSON.stringify(investmentType)},"change":${Number(row.change).toFixed(18)},"date":${JSON.stringify(row.date)}}`
+    const price = priceOf(row.name)
+    const worth = price === null ? 'null' : (Number(row.change) * price).toFixed(18)
+    return `{"id":${JSON.stringify(row.id)},"name":${JSON.stringify(row.name)},"investmentType":${JSON.stringify(investmentType)},"change":${Number(row.change).toFixed(18)},"date":${JSON.stringify(row.date)},"worth":${worth}}`
   }
   const jsonResponse = (body, status = 200) =>
     new HttpResponse(body, { status, headers: { 'Content-Type': 'application/json' } })

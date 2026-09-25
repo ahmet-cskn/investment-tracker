@@ -17,7 +17,7 @@ describe('listTransactions', () => {
     server.use(
       http.get('/api/transactions', () =>
         jsonText(
-          '[{"id":"a","name":"Bitcoin","investmentType":"Cryptocurrency","change":-1.500000000000000000,"date":"2026-01-15"}]',
+          '[{"id":"a","name":"Bitcoin","investmentType":"Cryptocurrency","change":-1.500000000000000000,"date":"2026-01-15","worth":-75000.000000000000000000}]',
         ),
       ),
     )
@@ -29,8 +29,27 @@ describe('listTransactions', () => {
         investmentType: 'Cryptocurrency',
         change: '-1.500000000000000000',
         date: '2026-01-15',
+        worth: '-75000.000000000000000000',
       },
     ])
+  })
+
+  it('returns worth as a string too, keeps a missing worth as null, and reads exponent notation', async () => {
+    server.use(
+      http.get('/api/transactions', () =>
+        jsonText(
+          '[{"id":"a","name":"Gold","investmentType":"Precious Metal","change":2,"date":"2026-01-15","worth":273.406470123456789012},' +
+            '{"id":"b","name":"Gold","investmentType":"Precious Metal","change":1,"date":"2010-01-01","worth":null},' +
+            '{"id":"c","name":"Gold","investmentType":"Precious Metal","change":1E-18,"date":"2026-01-15","worth":1E-16}]',
+        ),
+      ),
+    )
+
+    const [withWorth, withoutWorth, tiny] = await listTransactions()
+
+    expect(withWorth.worth).toBe('273.406470123456789012')
+    expect(withoutWorth.worth).toBeNull()
+    expect(tiny).toMatchObject({ change: '1E-18', worth: '1E-16' })
   })
 })
 
@@ -41,7 +60,7 @@ describe('createTransaction', () => {
       http.post('/api/transactions', async ({ request }) => {
         sentBody = await request.text()
         return jsonText(
-          '{"id":"a","name":"Gold","investmentType":"Precious Metal","change":-2.5,"date":"2026-01-15"}',
+          '{"id":"a","name":"Gold","investmentType":"Precious Metal","change":-2.5,"date":"2026-01-15","worth":-250}',
           201,
         )
       }),
@@ -50,7 +69,7 @@ describe('createTransaction', () => {
     const created = await createTransaction({ name: 'Gold', change: '-2.5', date: '2026-01-15' })
 
     expect(sentBody).toBe('{"name":"Gold","change":-2.5,"date":"2026-01-15"}')
-    expect(created).toMatchObject({ name: 'Gold', change: '-2.5' })
+    expect(created).toMatchObject({ name: 'Gold', change: '-2.5', worth: '-250' })
   })
 
   it('rejects a change that is not a plain signed decimal, as a rejected promise', async () => {

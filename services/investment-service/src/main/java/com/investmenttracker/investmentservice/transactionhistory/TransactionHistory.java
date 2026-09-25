@@ -37,6 +37,10 @@ public class TransactionHistory {
 	@Column(nullable = false)
 	private LocalDate date;
 
+	// What the change was worth in USD on that day (price times change), or null if no price could be obtained
+	@Column(precision = 38, scale = 18)
+	private BigDecimal worth;
+
 	protected TransactionHistory() {
 		// required by JPA
 	}
@@ -82,6 +86,14 @@ public class TransactionHistory {
 
 	public void setDate(LocalDate date) {
 		this.date = date;
+	}
+
+	public BigDecimal getWorth() {
+		return worth;
+	}
+
+	public void setWorth(BigDecimal worth) {
+		this.worth = worth;
 	}
 
 }

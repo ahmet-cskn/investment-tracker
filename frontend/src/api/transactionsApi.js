@@ -4,17 +4,18 @@ import { parseJsonKeepingDecimals, request } from './httpClient.js'
 /**
  * Client for the investment-service transactions REST API.
  *
- * @typedef {{ id: string, name: string, investmentType: string, change: string, date: string }} Transaction
- *   `change` is a decimal string (e.g. "-1.5"), never a number, to avoid losing precision; it may be
- *   negative or zero. `date` is a plain "YYYY-MM-DD" string. `investmentType` is derived server-side
- *   from `name` and is not settable here.
+ * @typedef {{ id: string, name: string, investmentType: string, change: string, date: string, worth: string | null }} Transaction
+ *   `change` and `worth` are decimal strings (e.g. "-1.5"), never numbers, to avoid losing precision; `change`
+ *   may be negative or zero. `date` is a plain "YYYY-MM-DD" string. `investmentType` and `worth` are derived
+ *   server-side and are not settable here: `worth` is the change's value in USD on `date` (the day's price
+ *   times the change), or null when no price could be obtained.
  * @typedef {{ name: string, change: string, date: string }} TransactionInput
  */
 
 export { ApiError } from './httpClient.js'
 
 const BASE_URL = '/api/transactions'
-const DECIMAL_FIELDS = ['change']
+const DECIMAL_FIELDS = ['change', 'worth']
 
 function serializeTransaction({ name, change, date }) {
   if (!SIGNED_PLAIN_DECIMAL.test(change)) {

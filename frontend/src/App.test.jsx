@@ -10,6 +10,7 @@ import { fakePortfolioHandler } from './test/fakePortfolio.js'
 import { createFakeTransactionsBackend } from './test/fakeTransactionsBackend.js'
 import { server } from './test/server.js'
 import { formatDate } from './utils/date.js'
+import { formatUsd } from './utils/money.js'
 
 // Initial investments (the rows behind /api/investments)
 const INITIAL_GOLD = { id: 'id-a', name: 'Gold', amount: '2' }
@@ -24,9 +25,9 @@ const GOLD_PLUS_FIVE = { id: 'tx-d', name: 'Gold', change: '5', date: '2026-03-0
 // App always renders the portfolio, the transactions and the catalog-backed "Add Transaction" button, so
 // every render needs all of them mocked. initial/initialTransactions seed the fake backends and the fake
 // portfolio is computed from both, like the real one; overrides let a test customise just what it needs.
-function renderApp(initial = [], overrides = [], initialTransactions = []) {
+function renderApp(initial = [], overrides = [], initialTransactions = [], transactionPrices = {}) {
   const backend = createFakeBackend(initial)
-  const transactionsBackend = createFakeTransactionsBackend(initialTransactions)
+  const transactionsBackend = createFakeTransactionsBackend(initialTransactions, { prices: transactionPrices })
   server.use(
     ...overrides,
     ...backend.handlers,
@@ -394,6 +395,26 @@ describe('transaction listing', () => {
     expect(within(rows[2]).getByText('-1.5')).toBeInTheDocument()
   })
 
+  it('shows each transaction\'s worth in dollars, negative for a decrease', async () => {
+    // fake prices: Gold 100 per unit, Bitcoin 50,000; GOLD_TX is +2.5 and BTC_TX is -1.5
+    renderApp([], [], [BTC_TX, GOLD_TX])
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[0]).getByText('Worth')).toBeInTheDocument()
+    expect(within(rows[1]).getByText(formatUsd('250'))).toBeInTheDocument()
+    expect(within(rows[2]).getByText(formatUsd('-75000'))).toBeInTheDocument()
+  })
+
+  it('shows a dash for a transaction that was saved without a worth', async () => {
+    renderApp([], [], [GOLD_TX], { Gold: null })
+
+    const rows = await within(transactionsSection()).findAllByRole('row')
+
+    expect(within(rows[1]).getByText('—')).toBeInTheDocument()
+    expect(within(rows[1]).queryByText(formatUsd('250'))).not.toBeInTheDocument()
+  })
+
   it('shows each transaction\'s date, without a time', async () => {
     renderApp([], [], [BTC_TX])
 
@@ -432,6 +453,9 @@ describe('adding a transaction', () => {
     expect(await within(transactionsSection()).findByText('Bitcoin')).toBeInTheDocument()
     expect(within(transactionsSection()).getByText('Cryptocurrency')).toBeInTheDocument()
     expect(within(transactionsSection()).getByText('-1.5')).toBeInTheDocument()
+    // the worth is worked out by the backend, so the modal never asks for it: -1.5 at 50,000 each
+    expect(within(transactionsSection()).getByText(formatUsd('-75000'))).toBeInTheDocument()
+    expect(screen.queryByLabelText('Worth')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Add transaction' })).not.toBeInTheDocument()
     expect([...transactionsBackend.rows.values()][0]).toMatchObject({ name: 'Bitcoin', change: -1.5 })
   })
@@ -489,6 +513,9 @@ describe('editing a transaction', () => {
 
     expect(await within(transactionsSection()).findByText('Precious Metal')).toBeInTheDocument()
     expect(within(transactionsSection()).queryByText('Cryptocurrency')).not.toBeInTheDocument()
+    // the worth was worked out again for the new investment and change: 3 at 100 each
+    expect(within(transactionsSection()).getByText(formatUsd('300'))).toBeInTheDocument()
+    expect(within(transactionsSection()).queryByText(formatUsd('-75000'))).not.toBeInTheDocument()
     expect(transactionsBackend.rows.get(BTC_TX.id)).toMatchObject({ name: 'Gold', change: 3 })
   })
 })
