@@ -52,5 +52,35 @@ services:
       timeout: 3s
       retries: 10
 
+  # Scrapes investment-service's /actuator/prometheus every 15s; see monitoring/prometheus/prometheus.yml
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      investment-service:
+        condition: service_healthy
+
+  # Dashboards at http://localhost:3001 (admin/admin); datasource and dashboard are provisioned from
+  # monitoring/grafana, so nothing needs configuring by hand
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
 volumes:
   postgres-data:
+  prometheus-data:
+  grafana-data:

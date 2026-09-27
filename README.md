@@ -22,6 +22,8 @@ docker compose up --build
 - UI: http://localhost:3000
 - API: http://localhost:8080/api/investments
 - Swagger UI: http://localhost:8080/swagger-ui.html
+- Grafana: http://localhost:3001 (no login needed)
+- Prometheus: http://localhost:9090
 
 Stop everything with `docker compose down`. The data lives in a Docker volume and survives restarts; add `-v` to delete it.
 
@@ -69,6 +71,14 @@ Prices are cached in the database, so the free quota is only spent filling the c
 most once a day. Gold, silver and crypto have years of daily history; on the free tier a stock (the S&P 500, tracked
 through the SPY ETF) has only its 100 most recent trading days, so an older stock transaction is saved without a worth.
 The cache keeps every price it has seen, so that window grows the longer the app runs.
+
+## Monitoring
+
+The backend exposes metrics at `/actuator/prometheus`, scraped by Prometheus every 15s (config in
+[`monitoring/prometheus`](monitoring/prometheus)) and shown in Grafana (dashboard and datasource provisioned from
+[`monitoring/grafana`](monitoring/grafana), no manual setup needed). Besides the usual HTTP and JVM metrics, the
+dashboard covers what's specific to this app: price lookups by whether a price was found, and the price provider's
+refresh calls by outcome, since Alpha Vantage's daily quota makes that worth watching.
 
 ## Tests
 

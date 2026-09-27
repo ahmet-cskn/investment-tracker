@@ -1,0 +1,124 @@
+{
+  "title": "Investment Tracker",
+  "uid": "investment-tracker",
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP requests per second",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"investment-service\"}[5m])) by (uri, status)",
+          "legendFormat": "{{uri}} ({{status}})"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP request latency (p95)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"investment-service\"}[5m])) by (le, uri))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Price lookups by result",
+      "type": "timeseries",
+      "description": "PriceService.findPrice calls, split by whether a price could be given back (found) or not (empty)",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(pricing_requests_total{application=\"investment-service\"}[5m])) by (name, result)",
+          "legendFormat": "{{name}} - {{result}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Price provider refresh calls",
+      "type": "timeseries",
+      "description": "Calls to Alpha Vantage to refresh an investment's cached prices, by outcome. At most one per investment per day.",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "increase(pricing_refresh_seconds_count{application=\"investment-service\"}[1d])",
+          "legendFormat": "{{name}} - {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Price provider call duration",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(pricing_refresh_seconds_sum{application=\"investment-service\"}[15m])) by (name) / sum(rate(pricing_refresh_seconds_count{application=\"investment-service\"}[15m])) by (name)",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "JVM heap used",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(jvm_memory_used_bytes{application=\"investment-service\", area=\"heap\"}) by (id)",
+          "legendFormat": "{{id}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Database connections in use",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_active{application=\"investment-service\"}",
+          "legendFormat": "active"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_idle{application=\"investment-service\"}",
+          "legendFormat": "idle"
+        }
+      ]
+    }
+  ]
+}

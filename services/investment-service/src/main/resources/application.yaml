@@ -18,3 +18,14 @@ pricing:
     # A free key from https://www.alphavantage.co/support/#api-key. Without one the app runs fine, but
     # prices are unavailable. Never commit it: keep it in the git-ignored .env file (see .env.example).
     api-key: ${ALPHAVANTAGE_API_KEY:}
+
+management:
+  endpoints:
+    web:
+      # health for the container healthcheck and dashboards, prometheus for Grafana to scrape; nothing else
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      # Distinguishes this service's metrics if another one is ever added to the same Prometheus/Grafana setup
+      application: ${spring.application.name}
