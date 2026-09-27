@@ -3,6 +3,7 @@ package com.investmenttracker.investmentservice;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.investmenttracker.investmentservice.financialtransaction.FinancialTransaction;
 import com.investmenttracker.investmentservice.investment.Investment;
 import com.investmenttracker.investmentservice.transactionhistory.TransactionHistory;
 import jakarta.persistence.EntityManager;
@@ -83,6 +84,33 @@ class EntityPersistenceIT {
 		TransactionHistory incomplete = new TransactionHistory(
 				missingColumn.equals("name") ? null : "Gold",
 				missingColumn.equals("investment_type") ? null : "METAL",
+				missingColumn.equals("change") ? null : new BigDecimal("1"),
+				missingColumn.equals("date") ? null : LocalDate.now());
+
+		assertThatThrownBy(() -> {
+			entityManager.persist(incomplete);
+			entityManager.flush();
+		}).rootCause().hasMessageContaining("\"" + missingColumn + "\"").hasMessageContaining("not-null");
+	}
+
+	@Test
+	void financialTransactionKeepsAllFieldsIncludingNegativeChange() {
+		LocalDate date = LocalDate.parse("2026-09-20");
+
+		FinancialTransaction reloaded = saveAndReload(
+				new FinancialTransaction("Groceries", new BigDecimal("-42.123456789012345678"), date));
+
+		assertThat(reloaded.getId()).isNotNull();
+		assertThat(reloaded.getName()).isEqualTo("Groceries");
+		assertThat(reloaded.getChange()).isEqualByComparingTo("-42.123456789012345678");
+		assertThat(reloaded.getDate()).isEqualTo(date);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "name", "change", "date" })
+	void financialTransactionRequiresEveryField(String missingColumn) {
+		FinancialTransaction incomplete = new FinancialTransaction(
+				missingColumn.equals("name") ? null : "Groceries",
 				missingColumn.equals("change") ? null : new BigDecimal("1"),
 				missingColumn.equals("date") ? null : LocalDate.now());
 
