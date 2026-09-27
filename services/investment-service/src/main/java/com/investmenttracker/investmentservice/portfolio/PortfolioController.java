@@ -1,6 +1,7 @@
 package com.investmenttracker.investmentservice.portfolio;
 
 import com.investmenttracker.investmentservice.portfolio.dto.PortfolioEntryResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,7 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 /** Read-only: the portfolio is derived from the initial investments and the transactions, never edited. */
 @RestController
 @RequestMapping("/api/portfolio")
-@Tag(name = "Portfolio")
+@Tag(name = "Portfolio", description = "What is currently held of each investment and what it is worth; "
+		+ "computed on every request from the investments and the transactions.")
 public class PortfolioController {
 
 	private final PortfolioService portfolioService;
@@ -19,6 +21,7 @@ public class PortfolioController {
 		this.portfolioService = portfolioService;
 	}
 
+	@Operation(summary = "Get the current holding and worth of every investment, sorted by name")
 	@GetMapping
 	public List<PortfolioEntryResponse> getPortfolio() {
 		return portfolioService.getPortfolio();
