@@ -7,6 +7,7 @@ import App from './App.jsx'
 import { createFakeBackend } from './test/fakeBackend.js'
 import { fakeCatalogHandler } from './test/fakeCatalog.js'
 import { fakePortfolioHandler } from './test/fakePortfolio.js'
+import { createFakeFinancialTransactionsBackend } from './test/fakeFinancialTransactionsBackend.js'
 import { createFakeTransactionsBackend } from './test/fakeTransactionsBackend.js'
 import { server } from './test/server.js'
 import { formatDate } from './utils/date.js'
@@ -25,13 +26,21 @@ const GOLD_PLUS_FIVE = { id: 'tx-d', name: 'Gold', change: '5', date: '2026-03-0
 // App always renders the portfolio, the transactions and the catalog-backed "Add Transaction" button, so
 // every render needs all of them mocked. initial/initialTransactions seed the fake backends and the fake
 // portfolio is computed from both, like the real one; overrides let a test customise just what it needs.
-function renderApp(initial = [], overrides = [], initialTransactions = [], transactionPrices = {}) {
+function renderApp(
+  initial = [],
+  overrides = [],
+  initialTransactions = [],
+  transactionPrices = {},
+  initialFinancialTransactions = [],
+) {
   const backend = createFakeBackend(initial)
   const transactionsBackend = createFakeTransactionsBackend(initialTransactions, { prices: transactionPrices })
+  const financialTransactionsBackend = createFakeFinancialTransactionsBackend(initialFinancialTransactions)
   server.use(
     ...overrides,
     ...backend.handlers,
     ...transactionsBackend.handlers,
+    ...financialTransactionsBackend.handlers,
     fakePortfolioHandler(backend, transactionsBackend),
     fakeCatalogHandler,
   )
@@ -42,7 +51,19 @@ function renderApp(initial = [], overrides = [], initialTransactions = [], trans
       <App />
     </QueryClientProvider>,
   )
-  return { user, backend, transactionsBackend }
+  return { user, backend, transactionsBackend, financialTransactionsBackend }
+}
+
+async function fillFinancialTransactionModal(user, { name, change, date }) {
+  if (name !== undefined) await user.type(screen.getByLabelText('Name'), name)
+  if (change !== undefined) await user.type(screen.getByLabelText('Change'), change)
+  if (date !== undefined) {
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } })
+  }
+}
+
+function financesSection() {
+  return screen.getByRole('heading', { name: 'Daily Finances' }).closest('section')
 }
 
 async function openInitialInvestments(user) {
@@ -80,6 +101,100 @@ function transactionsSection() {
 function netWorth() {
   return screen.getByRole('region', { name: 'Net worth' })
 }
+
+describe('tabs', () => {
+  it('shows the investments tab by default, with the finances tab reachable but not shown', async () => {
+    renderApp([INITIAL_GOLD])
+
+    await within(investmentsSection()).findAllByRole('row')
+
+    expect(screen.getByRole('heading', { name: 'Your investments' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Daily Finances' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Investments' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Daily Finances' })).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('switches to the finances tab and back, without losing the investments state', async () => {
+    const { user } = renderApp([INITIAL_GOLD])
+    await within(investmentsSection()).findAllByRole('row')
+
+    await user.click(screen.getByRole('tab', { name: 'Daily Finances' }))
+
+    expect(await screen.findByRole('heading', { name: 'Daily Finances' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Your investments' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Net worth' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Investments' }))
+
+    expect(await screen.findByText('Gold')).toBeInTheDocument()
+  })
+})
+
+describe('the daily finances tab', () => {
+  it('shows an empty state when there is nothing', async () => {
+    const { user } = renderApp()
+    await user.click(screen.getByRole('tab', { name: 'Daily Finances' }))
+
+    expect(await screen.findByText(/No financial transactions yet/)).toBeInTheDocument()
+  })
+
+  it('lists financial transactions newest first, without an investment type or worth column', async () => {
+    const { user } = renderApp([], [], [], {}, [
+      { id: 'f1', name: 'Rent', change: '-900', date: '2026-01-01' },
+      { id: 'f2', name: 'Salary', change: '3000', date: '2026-02-01' },
+    ])
+    await user.click(screen.getByRole('tab', { name: 'Daily Finances' }))
+
+    const rows = await within(financesSection()).findAllByRole('row')
+
+    expect(rows).toHaveLength(3)
+    expect(within(rows[0]).queryByText('Type')).not.toBeInTheDocument()
+    expect(within(rows[0]).queryByText('Worth')).not.toBeInTheDocument()
+    expect(within(rows[1]).getByText('Salary')).toBeInTheDocument()
+    expect(within(rows[1]).getByText(formatUsd('3000'))).toBeInTheDocument()
+    expect(within(rows[2]).getByText('Rent')).toBeInTheDocument()
+    expect(within(rows[2]).getByText(formatUsd('-900'))).toBeInTheDocument()
+  })
+
+  it('adds a financial transaction and does not affect the investments tab', async () => {
+    const { user } = renderApp([INITIAL_GOLD])
+    await user.click(screen.getByRole('tab', { name: 'Daily Finances' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Add Financial Transaction' }))
+    await fillFinancialTransactionModal(user, { name: 'Groceries', change: '-42.5', date: '2026-01-15' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await within(financesSection()).findByText('Groceries')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Investments' }))
+
+    expect(await screen.findByText(formatUsd('200'), { selector: '.net-worth-value' })).toBeInTheDocument()
+  })
+
+  it('edits a financial transaction', async () => {
+    const { user } = renderApp([], [], [], {}, [{ id: 'f1', name: 'Rent', change: '-900', date: '2026-01-01' }])
+    await user.click(screen.getByRole('tab', { name: 'Daily Finances' }))
+    await within(financesSection()).findByText('Rent')
+
+    await user.click(screen.getByRole('button', { name: 'Edit financial transaction for Rent' }))
+    await user.clear(screen.getByLabelText('Change'))
+    await fillFinancialTransactionModal(user, { change: '-950' })
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await within(financesSection()).findByText(formatUsd('-950'))).toBeInTheDocument()
+  })
+
+  it('deletes a financial transaction after confirming', async () => {
+    const { user } = renderApp([], [], [], {}, [{ id: 'f1', name: 'Rent', change: '-900', date: '2026-01-01' }])
+    await user.click(screen.getByRole('tab', { name: 'Daily Finances' }))
+    await within(financesSection()).findByText('Rent')
+
+    await user.click(screen.getByRole('button', { name: 'Delete financial transaction for Rent' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm delete financial transaction for Rent' }))
+
+    expect(await screen.findByText(/No financial transactions yet/)).toBeInTheDocument()
+  })
+})
 
 describe('the net worth', () => {
   it('shows the sum of the investments table\'s worth column', async () => {

@@ -33,6 +33,14 @@ export function formatAmount(raw) {
   return sign + integer + (fraction ? `.${fraction}` : '')
 }
 
+/** Returns an error message for an invalid free-text name, or null if it is valid (required, at most 255 chars). */
+export function validateName(input) {
+  const value = input.trim()
+  if (!value) return 'Name is required'
+  if (value.length > 255) return 'Name is too long'
+  return null
+}
+
 /** Returns an error message for an invalid amount input, or null if it is valid. */
 export function validateAmount(input) {
   const value = input.trim()

@@ -1,6 +1,7 @@
 package com.investmenttracker.investmentservice.error;
 
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
+import com.investmenttracker.investmentservice.financialtransaction.FinancialTransactionNotFoundException;
 import com.investmenttracker.investmentservice.investment.InvestmentNotFoundException;
 import com.investmenttracker.investmentservice.transactionhistory.TransactionNotFoundException;
 import java.util.List;
@@ -37,6 +38,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	public ProblemDetail handleTransactionNotFound(TransactionNotFoundException ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
 		problem.setTitle("Transaction not found");
+		return problem;
+	}
+
+	@ExceptionHandler(FinancialTransactionNotFoundException.class)
+	public ProblemDetail handleFinancialTransactionNotFound(FinancialTransactionNotFoundException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+		problem.setTitle("Financial transaction not found");
 		return problem;
 	}
 

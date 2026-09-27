@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-create-financial-transaction-table
+      author: ahmet-cskn
+      changes:
+        # Everyday money in and out, in USD; separate from transaction_history, whose changes are in units of an investment
+        - createTable:
+            tableName: financial_transaction
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              # Free text describing the transaction, e.g. "Groceries" or "Salary"
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              # Signed: positive for income, negative for spending
+              - column:
+                  name: change
+                  type: numeric(38,18)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: date
+                  type: date
+                  constraints:
+                    nullable: false
