@@ -13,6 +13,7 @@ import com.investmenttracker.investmentservice.catalog.AssetType;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,7 +53,8 @@ class PriceServiceTest {
 	@BeforeEach
 	void setUp() {
 		Clock clock = Clock.fixed(Instant.parse(TODAY + "T10:00:00Z"), ZoneOffset.UTC);
-		priceService = new PriceService(priceCache, priceProvider, investmentCatalogRepository, clock);
+		priceService = new PriceService(priceCache, priceProvider, investmentCatalogRepository, clock,
+				new SimpleMeterRegistry());
 		org.mockito.Mockito.lenient()
 				.when(investmentCatalogRepository.findById("Gold"))
 				.thenReturn(Optional.of(new InvestmentCatalogEntry("Gold", "Precious Metal", AssetType.METAL, "GOLD")));

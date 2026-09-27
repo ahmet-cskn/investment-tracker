@@ -3,6 +3,9 @@ package com.investmenttracker.investmentservice.pricing;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogEntry;
 import com.investmenttracker.investmentservice.catalog.InvestmentCatalogRepository;
 import com.investmenttracker.investmentservice.catalog.UnknownInvestmentNameException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -35,13 +38,15 @@ public class PriceService {
 	private final PriceProvider priceProvider;
 	private final InvestmentCatalogRepository investmentCatalogRepository;
 	private final Clock clock;
+	private final MeterRegistry meterRegistry;
 
 	public PriceService(PriceCacheRepository priceCache, PriceProvider priceProvider,
-			InvestmentCatalogRepository investmentCatalogRepository, Clock clock) {
+			InvestmentCatalogRepository investmentCatalogRepository, Clock clock, MeterRegistry meterRegistry) {
 		this.priceCache = priceCache;
 		this.priceProvider = priceProvider;
 		this.investmentCatalogRepository = investmentCatalogRepository;
 		this.clock = clock;
+		this.meterRegistry = meterRegistry;
 	}
 
 	/**
@@ -58,7 +63,14 @@ public class PriceService {
 		if (needsRefresh(name, date)) {
 			refresh(entry);
 		}
-		return priceCache.findLatestOnOrBefore(name, date);
+		Optional<BigDecimal> price = priceCache.findLatestOnOrBefore(name, date);
+		Counter.builder("pricing.requests")
+				.tag("name", name)
+				.tag("result", price.isPresent() ? "found" : "empty")
+				.description("Calls to PriceService.findPrice, by whether a price could be given back")
+				.register(meterRegistry)
+				.increment();
+		return price;
 	}
 
 	private boolean needsRefresh(String name, LocalDate date) {
@@ -73,6 +85,7 @@ public class PriceService {
 
 	private void refresh(InvestmentCatalogEntry entry) {
 		String name = entry.getName();
+		Timer.Sample sample = Timer.start(meterRegistry);
 		try {
 			Map<LocalDate, BigDecimal> fetched = priceProvider.fetchDailyPrices(entry.getAssetType(),
 					entry.getPriceSymbol());
@@ -87,11 +100,21 @@ public class PriceService {
 
 			priceCache.upsertAll(name, toStore);
 			priceCache.markSynced(name, LocalDate.now(clock));
+			recordRefresh(sample, name, "success");
 		}
 		catch (PriceUnavailableException e) {
 			// Not marked as synced, so the next request tries again
 			log.warn("Could not refresh the prices of {}: {}", name, e.getMessage());
+			recordRefresh(sample, name, "failure");
 		}
+	}
+
+	private void recordRefresh(Timer.Sample sample, String name, String outcome) {
+		sample.stop(Timer.builder("pricing.refresh")
+				.tag("name", name)
+				.tag("outcome", outcome)
+				.description("Calls to the price provider to refresh an investment's cached prices")
+				.register(meterRegistry));
 	}
 
 }
