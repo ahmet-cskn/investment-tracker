@@ -36,38 +36,27 @@ operational cost of splitting them into separate services, which nothing here cu
 - Grafana queries Prometheus (PromQL) to render its dashboards.
 
 ```mermaid
-%%{init: {'theme': 'neutral', 'themeVariables': {'clusterBorder': '#666666'}, 'flowchart': {'curve': 'stepAfter'}}}%%
-flowchart TB
-    user(["<b>User</b><br/><i>[Person]</i><br/>Tracks investments and<br/>daily income/spending"])
-
-    subgraph system["Investment Tracker - docker compose"]
-        direction TB
-        subgraph app["Application"]
-            direction TB
-            frontend["<b>Web Application</b><br/><i>[Container: React, Nginx]</i><br/>Lets the user manage investments,<br/>transactions and view the portfolio"]
-            backend["<b>Investment Service</b><br/><i>[Container: Spring Boot, Java 17]</i><br/>REST API for investments, transactions,<br/>pricing and the portfolio"]
-            db[("<b>PostgreSQL</b><br/><i>[Container: Database]</i><br/>Investments, transactions, catalog<br/>and cached prices")]
-            frontend --> backend
-            backend --> db
-        end
-        subgraph observability["Observability"]
-            direction TB
-            prometheus["<b>Prometheus</b><br/><i>[Container: Metrics]</i><br/>Scrapes and stores<br/>time-series metrics"]
-            grafana["<b>Grafana</b><br/><i>[Container: Dashboards]</i><br/>Visualizes metrics<br/>in dashboards"]
-            grafana --> prometheus
-        end
+%%{init: {'theme': 'neutral', 'themeVariables': {'clusterBorder': '#666666'}, 'flowchart': {'curve': 'step', 'nodeSpacing': 30, 'rankSpacing': 45}}}%%
+flowchart LR
+    user(["<b>User</b><br/><i>[Person]</i><br/>Tracks investments<br/>and spending"])
+    avapi[["<b>Alpha Vantage</b><br/><i>[External System]</i><br/>Daily price history<br/>for metals, crypto<br/>and a stock"]]
+    subgraph app["Application - docker compose"]
+        frontend["<b>Web Application</b><br/><i>[Container: React, Nginx]</i><br/>Manage investments,<br/>transactions and<br/>view the portfolio"]
+        backend["<b>Investment Service</b><br/><i>[Container: Spring Boot]</i><br/>REST API for investments,<br/>transactions, pricing<br/>and the portfolio"]
+        db[("<b>PostgreSQL</b><br/><i>[Container: Database]</i><br/>Investments,<br/>transactions, catalog<br/>and cached prices")]
     end
-
-    avapi[["<b>Alpha Vantage</b><br/><i>[External System]</i><br/>Daily price history for<br/>metals, crypto and a stock"]]
-
+    subgraph observability["Observability - docker compose"]
+        prometheus["<b>Prometheus</b><br/><i>[Container: Metrics]</i><br/>Scrapes and stores<br/>time-series metrics"]
+        grafana["<b>Grafana</b><br/><i>[Container: Dashboards]</i><br/>Visualizes metrics<br/>in dashboards"]
+    end
+    frontend --> backend
+    backend --> db
+    grafana --> prometheus
     user -->|"Uses<br/>[HTTPS]"| frontend
     backend -->|"Fetches daily prices<br/>[HTTPS]"| avapi
     prometheus -->|"Scrapes<br/>[HTTP]"| backend
-
-    style system stroke:#555555,stroke-width:1.5px
     style app stroke:#555555,stroke-width:1.5px
     style observability stroke:#555555,stroke-width:1.5px
-
     classDef external stroke-dasharray: 4 3
     class avapi external
 ```
