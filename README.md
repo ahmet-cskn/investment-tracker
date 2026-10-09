@@ -7,7 +7,7 @@
 - Prices are cached, so the app doesn't need to look up the same price twice and stays within the API's free daily quota, even when the app is reloaded multiple times.
 - You can also track and organize your everyday income and spending, which is kept separate from your investments so it never affects your portfolio or net worth.
 
-![Investment Tracker screenshot](docs/screenshot.webp)
+![Investment Tracker screenshot](docs/screenshot.png)
 
 ## Tech Stack
 
